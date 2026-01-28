@@ -1,0 +1,30 @@
+{
+  "name": "@skills/changeset-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "create": "bun create.ts",
+    "validate": "bun validate.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@changesets/cli": "^2.27.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "comments": {
+    "note": "This package.json is for reference. Add dependencies to your project's main package.json.",
+    "usage": {
+      "bun": "bun scripts/changeset/create.ts",
+      "tsx": "pnpm tsx scripts/changeset/create.ts"
+    }
+  }
+}
