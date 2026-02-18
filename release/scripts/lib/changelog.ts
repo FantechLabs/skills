@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export interface ChangelogEntry {
   version: string;
@@ -11,16 +11,14 @@ export interface ChangelogEntry {
 /**
  * Read CHANGELOG.md and extract the latest version entry
  */
-export function getLatestChangelogEntry(
-  packagePath: string
-): ChangelogEntry | null {
-  const changelogPath = join(packagePath, 'CHANGELOG.md');
+export function getLatestChangelogEntry(packagePath: string): ChangelogEntry | null {
+  const changelogPath = join(packagePath, "CHANGELOG.md");
 
   if (!existsSync(changelogPath)) {
     return null;
   }
 
-  const content = readFileSync(changelogPath, 'utf-8');
+  const content = readFileSync(changelogPath, "utf-8");
 
   // Match version header pattern: ## X.Y.Z or ## [X.Y.Z]
   const versionPattern = /^## \[?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)\]?/gm;
@@ -46,13 +44,11 @@ export function getLatestChangelogEntry(
   const linearIssues = extractLinearIssues(entryContent);
 
   // Extract date if present (format: ## X.Y.Z - YYYY-MM-DD or similar)
-  const dateMatch = content
-    .slice(latestMatch.index!, startIndex)
-    .match(/(\d{4}-\d{2}-\d{2})/);
+  const dateMatch = content.slice(latestMatch.index!, startIndex).match(/(\d{4}-\d{2}-\d{2})/);
 
   return {
     version,
-    date: dateMatch ? dateMatch[1] : new Date().toISOString().split('T')[0],
+    date: dateMatch ? dateMatch[1] : new Date().toISOString().split("T")[0],
     content: entryContent,
     linearIssues,
   };
@@ -70,17 +66,14 @@ export function extractLinearIssues(text: string): string[] {
 /**
  * Format changelog entry for GitHub release
  */
-export function formatForGitHubRelease(
-  entry: ChangelogEntry,
-  linearWorkspace?: string
-): string {
+export function formatForGitHubRelease(entry: ChangelogEntry, linearWorkspace?: string): string {
   let content = entry.content;
 
   // Add Linear links if workspace is provided
   if (linearWorkspace && entry.linearIssues.length > 0) {
     for (const issue of entry.linearIssues) {
       const link = `[${issue}](https://linear.app/${linearWorkspace}/issue/${issue})`;
-      content = content.replace(new RegExp(`\\b${issue}\\b`, 'g'), link);
+      content = content.replace(new RegExp(`\\b${issue}\\b`, "g"), link);
     }
   }
 
@@ -92,10 +85,10 @@ export function formatForGitHubRelease(
  */
 export function combineChangelogEntries(
   entries: Array<{ packageName: string; entry: ChangelogEntry }>,
-  linearWorkspace?: string
+  linearWorkspace?: string,
 ): string {
   if (entries.length === 0) {
-    return 'No changelog entries found.';
+    return "No changelog entries found.";
   }
 
   if (entries.length === 1) {
@@ -107,15 +100,13 @@ export function combineChangelogEntries(
       const formattedContent = formatForGitHubRelease(entry, linearWorkspace);
       return `## ${packageName}\n\n${formattedContent}`;
     })
-    .join('\n\n---\n\n');
+    .join("\n\n---\n\n");
 }
 
 /**
  * Get all Linear issues from multiple changelog entries
  */
-export function getAllLinearIssues(
-  entries: Array<{ entry: ChangelogEntry }>
-): string[] {
+export function getAllLinearIssues(entries: Array<{ entry: ChangelogEntry }>): string[] {
   const allIssues = entries.flatMap(({ entry }) => entry.linearIssues);
   return [...new Set(allIssues)];
 }

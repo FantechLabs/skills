@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseArgs } from 'node:util';
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs } from "node:util";
 
-import { findMonorepoRoot } from './lib/runtime';
+import { findMonorepoRoot } from "./lib/runtime";
 
 const { values: args } = parseArgs({
   options: {
-    help: { type: 'boolean', default: false },
-    quiet: { type: 'boolean', default: false },
+    help: { type: "boolean", default: false },
+    quiet: { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
@@ -35,23 +35,20 @@ interface ValidationResult {
 }
 
 function validate(cwd: string): ValidationResult {
-  const changesetDir = join(cwd, '.changeset');
+  const changesetDir = join(cwd, ".changeset");
 
   if (!existsSync(changesetDir)) {
     return {
       valid: false,
       changesetFiles: [],
       isEmpty: false,
-      message: 'No .changeset directory found',
+      message: "No .changeset directory found",
     };
   }
 
   // Find all .md files except README.md and config files
   const files = readdirSync(changesetDir).filter(
-    (f) =>
-      f.endsWith('.md') &&
-      f !== 'README.md' &&
-      !f.startsWith('.')
+    (f) => f.endsWith(".md") && f !== "README.md" && !f.startsWith("."),
   );
 
   if (files.length === 0) {
@@ -59,14 +56,14 @@ function validate(cwd: string): ValidationResult {
       valid: false,
       changesetFiles: [],
       isEmpty: false,
-      message: 'No changeset files found',
+      message: "No changeset files found",
     };
   }
 
   // Check if all changesets are empty (internal changes only)
   let allEmpty = true;
   for (const file of files) {
-    const content = readFileSync(join(changesetDir, file), 'utf-8');
+    const content = readFileSync(join(changesetDir, file), "utf-8");
     // Check if frontmatter has any package bumps
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
     if (frontmatterMatch) {
@@ -105,12 +102,12 @@ function main(): void {
       }
     } else {
       console.error(`✗ ${result.message}`);
-      console.error('');
-      console.error('To create a changeset, run:');
-      console.error('  pnpm changeset:create');
-      console.error('');
-      console.error('For internal changes only:');
-      console.error('  pnpm changeset --empty');
+      console.error("");
+      console.error("To create a changeset, run:");
+      console.error("  pnpm changeset:create");
+      console.error("");
+      console.error("For internal changes only:");
+      console.error("  pnpm changeset --empty");
     }
   }
 

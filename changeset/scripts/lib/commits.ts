@@ -1,6 +1,6 @@
-import { execSync } from 'node:child_process';
+import { execSync } from "node:child_process";
 
-export type BumpType = 'major' | 'minor' | 'patch' | 'none';
+export type BumpType = "major" | "minor" | "patch" | "none";
 
 export interface ParsedCommit {
   hash: string;
@@ -21,22 +21,17 @@ export interface CommitsByPackage {
 }
 
 // Commit types that require a changeset (user-facing)
-const USER_FACING_TYPES = ['feat', 'fix', 'perf', 'refactor'];
+const USER_FACING_TYPES = ["feat", "fix", "perf", "refactor"];
 
 // Commit types that don't require a changeset (internal)
-const INTERNAL_TYPES = ['chore', 'docs', 'test', 'ci', 'build', 'style'];
+const INTERNAL_TYPES = ["chore", "docs", "test", "ci", "build", "style"];
 
 /**
  * Parse a conventional commit message
  */
-export function parseConventionalCommit(
-  message: string,
-  hash: string = ''
-): ParsedCommit | null {
+export function parseConventionalCommit(message: string, hash: string = ""): ParsedCommit | null {
   // Match: type(scope)!: description or type!: description or type(scope): description
-  const match = message.match(
-    /^(\w+)(?:\(([^)]+)\))?(!)?\s*:\s*(?:\p{Emoji}\s*)?(.+)$/u
-  );
+  const match = message.match(/^(\w+)(?:\(([^)]+)\))?(!)?\s*:\s*(?:\p{Emoji}\s*)?(.+)$/u);
 
   if (!match) {
     return null;
@@ -59,8 +54,8 @@ export function parseConventionalCommit(
  * Get commits since base branch
  */
 export function getCommitsSince(
-  baseBranch: string = 'main',
-  cwd: string = process.cwd()
+  baseBranch: string = "main",
+  cwd: string = process.cwd(),
 ): ParsedCommit[] {
   try {
     // Get merge base
@@ -68,26 +63,23 @@ export function getCommitsSince(
     try {
       mergeBase = execSync(`git merge-base ${baseBranch} HEAD`, {
         cwd,
-        encoding: 'utf-8',
+        encoding: "utf-8",
       }).trim();
     } catch {
       mergeBase = baseBranch;
     }
 
     // Get commits with hash and message
-    const output = execSync(
-      `git log ${mergeBase}..HEAD --format="%H|||%s|||%b<<<END>>>"`,
-      {
-        cwd,
-        encoding: 'utf-8',
-      }
-    );
+    const output = execSync(`git log ${mergeBase}..HEAD --format="%H|||%s|||%b<<<END>>>"`, {
+      cwd,
+      encoding: "utf-8",
+    });
 
     const commits: ParsedCommit[] = [];
-    const entries = output.split('<<<END>>>').filter((e) => e.trim());
+    const entries = output.split("<<<END>>>").filter((e) => e.trim());
 
     for (const entry of entries) {
-      const parts = entry.trim().split('|||');
+      const parts = entry.trim().split("|||");
       if (parts.length >= 2) {
         const [hash, subject, body] = parts;
         const parsed = parseConventionalCommit(subject.trim(), hash.trim());
@@ -108,17 +100,17 @@ export function getCommitsSince(
  * Determine bump type from commit type
  */
 export function getBumpFromCommitType(commit: ParsedCommit): BumpType {
-  if (commit.breaking) return 'major';
+  if (commit.breaking) return "major";
 
   switch (commit.type) {
-    case 'feat':
-      return 'minor';
-    case 'fix':
-    case 'perf':
-    case 'refactor':
-      return 'patch';
+    case "feat":
+      return "minor";
+    case "fix":
+    case "perf":
+    case "refactor":
+      return "patch";
     default:
-      return 'none';
+      return "none";
   }
 }
 
@@ -126,10 +118,10 @@ export function getBumpFromCommitType(commit: ParsedCommit): BumpType {
  * Get highest bump type (major > minor > patch > none)
  */
 export function getHighestBump(bumps: BumpType[]): BumpType {
-  if (bumps.includes('major')) return 'major';
-  if (bumps.includes('minor')) return 'minor';
-  if (bumps.includes('patch')) return 'patch';
-  return 'none';
+  if (bumps.includes("major")) return "major";
+  if (bumps.includes("minor")) return "minor";
+  if (bumps.includes("patch")) return "patch";
+  return "none";
 }
 
 /**
@@ -151,7 +143,7 @@ export function allCommitsInternal(commits: ParsedCommit[]): boolean {
  */
 export function groupCommitsByScope(
   commits: ParsedCommit[],
-  scopeToPackage: Map<string, string>
+  scopeToPackage: Map<string, string>,
 ): Map<string, CommitsByPackage> {
   const grouped = new Map<string, CommitsByPackage>();
 
@@ -167,8 +159,8 @@ export function groupCommitsByScope(
         packageName,
         scope,
         commits: [],
-        suggestedBump: 'none',
-        reason: '',
+        suggestedBump: "none",
+        reason: "",
       });
     }
 
@@ -183,15 +175,15 @@ export function groupCommitsByScope(
 
     // Determine reason
     if (group.commits.some((c) => c.breaking)) {
-      group.reason = 'breaking change detected';
-    } else if (group.commits.some((c) => c.type === 'feat')) {
-      group.reason = 'feat commit detected';
-    } else if (group.commits.some((c) => c.type === 'fix')) {
-      group.reason = 'fix commit detected';
-    } else if (group.commits.some((c) => c.type === 'perf')) {
-      group.reason = 'perf commit detected';
-    } else if (group.commits.some((c) => c.type === 'refactor')) {
-      group.reason = 'refactor commit detected';
+      group.reason = "breaking change detected";
+    } else if (group.commits.some((c) => c.type === "feat")) {
+      group.reason = "feat commit detected";
+    } else if (group.commits.some((c) => c.type === "fix")) {
+      group.reason = "fix commit detected";
+    } else if (group.commits.some((c) => c.type === "perf")) {
+      group.reason = "perf commit detected";
+    } else if (group.commits.some((c) => c.type === "refactor")) {
+      group.reason = "refactor commit detected";
     }
   }
 
@@ -218,7 +210,7 @@ export function areCommitsRelated(commits: ParsedCommit[]): boolean {
     c.description
       .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length > 4)
+      .filter((w) => w.length > 4),
   );
   const wordCounts = new Map<string, number>();
   for (const word of words) {

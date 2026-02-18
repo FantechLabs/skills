@@ -1,5 +1,5 @@
-import * as p from '@clack/prompts';
-import type { BumpType } from './commits';
+import * as p from "@clack/prompts";
+import type { BumpType } from "./commits";
 
 export interface BumpSelection {
   packageName: string;
@@ -67,7 +67,7 @@ export function error(message: string): void {
 export async function selectBumpType(
   packageName: string,
   suggestedBump: BumpType,
-  reason: string
+  reason: string,
 ): Promise<BumpSelection> {
   const result = await p.select({
     message: `Bump type for ${packageName}?`,
@@ -77,28 +77,22 @@ export async function selectBumpType(
         label: `${suggestedBump} (suggested)`,
         hint: reason,
       },
-      ...(suggestedBump !== 'patch'
-        ? [{ value: 'patch' as const, label: 'patch' }]
-        : []),
-      ...(suggestedBump !== 'minor'
-        ? [{ value: 'minor' as const, label: 'minor' }]
-        : []),
-      ...(suggestedBump !== 'major'
-        ? [{ value: 'major' as const, label: 'major' }]
-        : []),
-      { value: 'skip' as const, label: 'skip', hint: 'no changeset' },
+      ...(suggestedBump !== "patch" ? [{ value: "patch" as const, label: "patch" }] : []),
+      ...(suggestedBump !== "minor" ? [{ value: "minor" as const, label: "minor" }] : []),
+      ...(suggestedBump !== "major" ? [{ value: "major" as const, label: "major" }] : []),
+      { value: "skip" as const, label: "skip", hint: "no changeset" },
     ],
   });
 
   if (p.isCancel(result)) {
-    p.cancel('Operation cancelled');
+    p.cancel("Operation cancelled");
     process.exit(0);
   }
 
   return {
     packageName,
-    bump: result === 'skip' ? 'none' : (result as BumpType),
-    skipped: result === 'skip',
+    bump: result === "skip" ? "none" : (result as BumpType),
+    skipped: result === "skip",
   };
 }
 
@@ -107,7 +101,7 @@ export async function selectBumpType(
  */
 export async function editSummary(
   packageName: string,
-  suggestedSummary: string
+  suggestedSummary: string,
 ): Promise<SummaryEdit> {
   const result = await p.text({
     message: `Summary for ${packageName}:`,
@@ -116,7 +110,7 @@ export async function editSummary(
   });
 
   if (p.isCancel(result)) {
-    p.cancel('Operation cancelled');
+    p.cancel("Operation cancelled");
     process.exit(0);
   }
 
@@ -135,7 +129,7 @@ export async function confirm(message: string): Promise<boolean> {
   });
 
   if (p.isCancel(result)) {
-    p.cancel('Operation cancelled');
+    p.cancel("Operation cancelled");
     process.exit(0);
   }
 
@@ -146,24 +140,21 @@ export async function confirm(message: string): Promise<boolean> {
  * Prompt to create empty changeset
  */
 export async function promptEmptyChangeset(): Promise<boolean> {
-  return confirm('No user-facing changes detected. Create empty changeset?');
+  return confirm("No user-facing changes detected. Create empty changeset?");
 }
 
 /**
  * Show spinner while executing async task
  */
-export async function spinner<T>(
-  message: string,
-  task: () => Promise<T>
-): Promise<T> {
+export async function spinner<T>(message: string, task: () => Promise<T>): Promise<T> {
   const s = p.spinner();
   s.start(message);
   try {
     const result = await task();
-    s.stop(message + ' done');
+    s.stop(message + " done");
     return result;
   } catch (err) {
-    s.stop(message + ' failed');
+    s.stop(message + " failed");
     throw err;
   }
 }
@@ -175,11 +166,8 @@ export function displayCommits(
   packageName: string,
   commits: string[],
   suggestedBump: BumpType,
-  reason: string
+  reason: string,
 ): void {
-  const commitList = commits.map((c) => `  - ${c}`).join('\n');
-  p.note(
-    `${commitList}\n\nSuggested bump: ${suggestedBump} (${reason})`,
-    packageName
-  );
+  const commitList = commits.map((c) => `  - ${c}`).join("\n");
+  p.note(`${commitList}\n\nSuggested bump: ${suggestedBump} (${reason})`, packageName);
 }
