@@ -1,0 +1,48 @@
+{
+  "name": "@fantech/skills",
+  "version": "0.1.0",
+  "description": "Shared agent skills and CLI for Fantech engineering practices",
+  "license": "MIT",
+  "bin": {
+    "skills": "./bin/skills.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "commit/",
+    "changeset/",
+    "release/",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "skills": "node ./bin/skills.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src commit/scripts release/scripts changeset/scripts",
+    "format": "oxfmt src commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json",
+    "format:check": "oxfmt --check src commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json",
+    "precommit": "npm run -s lint && npm run -s format:check && npm run -s typecheck",
+    "commitlint": "commitlint",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.1",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@types/node": "^22.10.0",
+    "husky": "^9.1.7",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  }
+}
