@@ -1,5 +1,5 @@
-import { execSync } from 'node:child_process';
-import type { VersionedPackage } from './version';
+import { execSync } from "node:child_process";
+import type { VersionedPackage } from "./version";
 
 export interface TagInfo {
   tag: string;
@@ -15,8 +15,8 @@ export function tagExists(tag: string, cwd: string): boolean {
   try {
     execSync(`git rev-parse ${tag}`, {
       cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
+      stdio: "pipe",
+      encoding: "utf-8",
     });
     return true;
   } catch {
@@ -27,11 +27,7 @@ export function tagExists(tag: string, cwd: string): boolean {
 /**
  * Create git tag for a package
  */
-export function createTag(
-  pkg: VersionedPackage,
-  cwd: string,
-  dryRun: boolean = false
-): TagInfo {
+export function createTag(pkg: VersionedPackage, cwd: string, dryRun: boolean = false): TagInfo {
   const tag = `${pkg.name}@${pkg.newVersion}`;
 
   if (dryRun) {
@@ -56,8 +52,8 @@ export function createTag(
   try {
     execSync(`git tag -a "${tag}" -m "Release ${tag}"`, {
       cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
+      stdio: "pipe",
+      encoding: "utf-8",
     });
 
     return {
@@ -67,7 +63,7 @@ export function createTag(
       created: true,
     };
   } catch (error) {
-    throw new Error(`Failed to create tag ${tag}: ${error}`);
+    throw new Error(`Failed to create tag ${tag}: ${String(error)}`, { cause: error });
   }
 }
 
@@ -77,7 +73,7 @@ export function createTag(
 export function createTags(
   packages: VersionedPackage[],
   cwd: string,
-  dryRun: boolean = false
+  dryRun: boolean = false,
 ): TagInfo[] {
   return packages.map((pkg) => createTag(pkg, cwd, dryRun));
 }
@@ -85,23 +81,20 @@ export function createTags(
 /**
  * Push tags to remote
  */
-export function pushTags(
-  cwd: string,
-  dryRun: boolean = false
-): void {
+export function pushTags(cwd: string, dryRun: boolean = false): void {
   if (dryRun) {
-    console.log('[dry-run] Would push tags to remote');
+    console.log("[dry-run] Would push tags to remote");
     return;
   }
 
   try {
-    execSync('git push --follow-tags', {
+    execSync("git push --follow-tags", {
       cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
+      stdio: "pipe",
+      encoding: "utf-8",
     });
   } catch (error) {
-    throw new Error(`Failed to push tags: ${error}`);
+    throw new Error(`Failed to push tags: ${String(error)}`, { cause: error });
   }
 }
 
@@ -112,12 +105,12 @@ export function getPackageTags(packageName: string, cwd: string): string[] {
   try {
     const output = execSync(`git tag -l "${packageName}@*"`, {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
     });
 
     return output
       .trim()
-      .split('\n')
+      .split("\n")
       .filter((t) => t.length > 0);
   } catch {
     return [];
@@ -136,8 +129,8 @@ export function getLatestTag(packageName: string, cwd: string): string | null {
 
   // Sort by semver (simplified)
   tags.sort((a, b) => {
-    const versionA = a.replace(`${packageName}@`, '');
-    const versionB = b.replace(`${packageName}@`, '');
+    const versionA = a.replace(`${packageName}@`, "");
+    const versionB = b.replace(`${packageName}@`, "");
     return compareVersions(versionB, versionA); // Descending
   });
 
@@ -145,8 +138,8 @@ export function getLatestTag(packageName: string, cwd: string): string | null {
 }
 
 function compareVersions(a: string, b: string): number {
-  const partsA = a.replace(/-.*$/, '').split('.').map(Number);
-  const partsB = b.replace(/-.*$/, '').split('.').map(Number);
+  const partsA = a.replace(/-.*$/, "").split(".").map(Number);
+  const partsB = b.replace(/-.*$/, "").split(".").map(Number);
 
   for (let i = 0; i < 3; i++) {
     if (partsA[i] > partsB[i]) return 1;

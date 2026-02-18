@@ -1,30 +1,24 @@
 #!/usr/bin/env node
 
-import { execSync } from 'node:child_process';
-import { parseArgs } from 'node:util';
+import { execSync } from "node:child_process";
+import { parseArgs } from "node:util";
 
-import { getLatestChangelogEntry } from './lib/changelog';
-import { buildReleaseInfo, createGitHubRelease, isGhAuthenticated } from './lib/github';
-import { createTags, pushTags } from './lib/tags';
-import {
-  getPendingChangesets,
-  getPrereleaseInfo,
-  runChangesetVersion,
-  type VersionedPackage,
-} from './lib/version';
+import { getLatestChangelogEntry } from "./lib/changelog";
+import { buildReleaseInfo, createGitHubRelease, isGhAuthenticated } from "./lib/github";
+import { createTags, pushTags } from "./lib/tags";
+import { getPendingChangesets, getPrereleaseInfo, runChangesetVersion } from "./lib/version";
 
-// Import shared utilities from changeset skill
-import { findMonorepoRoot, isInteractive } from '../../changeset/scripts/lib/runtime';
-import * as prompts from '../../changeset/scripts/lib/prompts';
+import { findMonorepoRoot, isInteractive } from "./lib/runtime";
+import * as prompts from "./lib/prompts";
 
 // Parse command line arguments
 const { values: args } = parseArgs({
   options: {
-    ci: { type: 'boolean', default: false },
-    'dry-run': { type: 'boolean', default: false },
-    'skip-github': { type: 'boolean', default: false },
-    'no-push': { type: 'boolean', default: false },
-    help: { type: 'boolean', default: false },
+    ci: { type: "boolean", default: false },
+    "dry-run": { type: "boolean", default: false },
+    "skip-github": { type: "boolean", default: false },
+    "no-push": { type: "boolean", default: false },
+    help: { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
@@ -83,7 +77,7 @@ function analyze(cwd: string): ReleaseAnalysis {
         currentVersion: pkg.oldVersion,
         newVersion: pkg.newVersion,
         bump: pkg.bump,
-        changelogEntry: changelog?.content || '',
+        changelogEntry: changelog?.content || "",
         tag: releaseInfo.tag,
         githubRelease: {
           tag: releaseInfo.tag,
@@ -92,7 +86,7 @@ function analyze(cwd: string): ReleaseAnalysis {
         },
       };
     }),
-    commitMessage: 'chore(release): version packages',
+    commitMessage: "chore(release): version packages",
   };
 }
 
@@ -103,33 +97,33 @@ async function executeRelease(
   cwd: string,
   interactive: boolean,
   skipGithub: boolean,
-  noPush: boolean
+  noPush: boolean,
 ): Promise<void> {
   // Step 1: Run changeset version
   if (interactive) {
-    prompts.log('Running changeset version...');
+    prompts.log("Running changeset version...");
   }
 
   const packages = runChangesetVersion(cwd, false);
 
   if (packages.length === 0) {
     if (interactive) {
-      prompts.warn('No packages to release');
+      prompts.warn("No packages to release");
     } else {
-      console.log('No packages to release');
+      console.log("No packages to release");
     }
     return;
   }
 
   // Step 2: Install dependencies (update lockfile)
   if (interactive) {
-    prompts.log('Updating lockfile...');
+    prompts.log("Updating lockfile...");
   }
 
   try {
-    execSync('pnpm install --lockfile-only', {
+    execSync("pnpm install --lockfile-only", {
       cwd,
-      stdio: 'pipe',
+      stdio: "pipe",
     });
   } catch {
     // Lockfile update might not be needed
@@ -137,33 +131,32 @@ async function executeRelease(
 
   // Step 3: Commit changes
   if (interactive) {
-    prompts.log('Committing version changes...');
+    prompts.log("Committing version changes...");
   }
 
   try {
-    execSync('git add .', { cwd, stdio: 'pipe' });
+    execSync("git add .", { cwd, stdio: "pipe" });
     execSync('git commit -m "chore(release): version packages"', {
       cwd,
-      stdio: 'pipe',
+      stdio: "pipe",
     });
   } catch (error: any) {
-    if (!error.message?.includes('nothing to commit')) {
+    if (!error.message?.includes("nothing to commit")) {
       throw error;
     }
   }
 
   // Step 4: Create tags
   if (interactive) {
-    prompts.log('Creating tags...');
+    prompts.log("Creating tags...");
   }
 
-  const tags = createTags(packages, cwd);
-  const createdTags = tags.filter((t) => t.created);
+  createTags(packages, cwd);
 
   // Step 5: Push (unless --no-push)
   if (!noPush) {
     if (interactive) {
-      prompts.log('Pushing to remote...');
+      prompts.log("Pushing to remote...");
     }
     pushTags(cwd);
   }
@@ -174,14 +167,14 @@ async function executeRelease(
   if (!skipGithub) {
     if (!isGhAuthenticated()) {
       if (interactive) {
-        prompts.warn('gh CLI not authenticated. Skipping GitHub releases.');
-        prompts.log('Run: gh auth login');
+        prompts.warn("gh CLI not authenticated. Skipping GitHub releases.");
+        prompts.log("Run: gh auth login");
       } else {
-        console.log('Warning: gh CLI not authenticated. Skipping GitHub releases.');
+        console.log("Warning: gh CLI not authenticated. Skipping GitHub releases.");
       }
     } else {
       if (interactive) {
-        prompts.log('Creating GitHub releases...');
+        prompts.log("Creating GitHub releases...");
       }
 
       for (const pkg of packages) {
@@ -199,36 +192,33 @@ async function executeRelease(
 
   // Step 7: Summary
   if (interactive) {
-    prompts.success('Release complete!');
+    prompts.success("Release complete!");
     prompts.note(
-      packages.map((p) => `• ${p.name}@${p.newVersion}`).join('\n'),
-      'Released packages'
+      packages.map((p) => `• ${p.name}@${p.newVersion}`).join("\n"),
+      "Released packages",
     );
 
     if (releaseUrls.length > 0) {
-      prompts.note(
-        releaseUrls.map((url) => `• ${url}`).join('\n'),
-        'GitHub releases'
-      );
+      prompts.note(releaseUrls.map((url) => `• ${url}`).join("\n"), "GitHub releases");
     }
 
-    prompts.log('');
-    prompts.log('💡 To post release notes to Slack, run: /slack-release');
+    prompts.log("");
+    prompts.log("💡 To post release notes to Slack, run: /slack-release");
   } else {
-    console.log('\n✅ Release complete!\n');
-    console.log('Released packages:');
+    console.log("\n✅ Release complete!\n");
+    console.log("Released packages:");
     for (const pkg of packages) {
       console.log(`  • ${pkg.name}@${pkg.newVersion}`);
     }
 
     if (releaseUrls.length > 0) {
-      console.log('\nGitHub releases:');
+      console.log("\nGitHub releases:");
       for (const url of releaseUrls) {
         console.log(`  • ${url}`);
       }
     }
 
-    console.log('\n💡 To post release notes to Slack, run: /slack-release');
+    console.log("\n💡 To post release notes to Slack, run: /slack-release");
   }
 }
 
@@ -239,10 +229,10 @@ async function main(): Promise<void> {
   }
 
   const cwd = findMonorepoRoot(process.cwd()) || process.cwd();
-  const interactive = isInteractive() && !args.ci && !args['dry-run'];
+  const interactive = isInteractive() && !args.ci && !args["dry-run"];
 
   if (interactive) {
-    prompts.intro('Release packages');
+    prompts.intro("Release packages");
   }
 
   // Check for pending changesets
@@ -250,16 +240,16 @@ async function main(): Promise<void> {
 
   if (pendingChangesets.length === 0) {
     if (interactive) {
-      prompts.warn('No pending changesets found');
-      prompts.outro('Nothing to release');
+      prompts.warn("No pending changesets found");
+      prompts.outro("Nothing to release");
     } else {
-      console.log('No pending changesets found. Nothing to release.');
+      console.log("No pending changesets found. Nothing to release.");
     }
     return;
   }
 
   // Dry run - output JSON
-  if (args['dry-run']) {
+  if (args["dry-run"]) {
     const analysis = analyze(cwd);
     console.log(JSON.stringify(analysis, null, 2));
     return;
@@ -272,35 +262,30 @@ async function main(): Promise<void> {
   if (interactive) {
     const packageList = analysis.packagesToRelease
       .map((p) => `${p.name}: ${p.currentVersion} → ${p.newVersion} (${p.bump})`)
-      .join('\n');
+      .join("\n");
 
-    prompts.note(packageList, 'Packages to release');
+    prompts.note(packageList, "Packages to release");
 
     if (analysis.prereleaseMode) {
       prompts.warn(`Prerelease mode: ${analysis.prereleaseMode}`);
     }
 
-    const confirmed = await prompts.confirm('Proceed with release?');
+    const confirmed = await prompts.confirm("Proceed with release?");
     if (!confirmed) {
-      prompts.outro('Cancelled');
+      prompts.outro("Cancelled");
       return;
     }
   }
 
   // Execute
-  await executeRelease(
-    cwd,
-    interactive,
-    args['skip-github'] || false,
-    args['no-push'] || false
-  );
+  await executeRelease(cwd, interactive, args["skip-github"] || false, args["no-push"] || false);
 
   if (interactive) {
-    prompts.outro('Done');
+    prompts.outro("Done");
   }
 }
 
 main().catch((err) => {
-  console.error('Error:', err.message);
+  console.error("Error:", err.message);
   process.exit(1);
 });

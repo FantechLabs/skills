@@ -1,6 +1,6 @@
-import { execSync } from 'node:child_process';
-import type { VersionedPackage } from './version';
-import { formatForGitHubRelease, getLatestChangelogEntry } from './changelog';
+import { execSync } from "node:child_process";
+import type { VersionedPackage } from "./version";
+import { formatForGitHubRelease, getLatestChangelogEntry } from "./changelog";
 
 export interface GitHubReleaseInfo {
   tag: string;
@@ -22,9 +22,9 @@ export interface CreateReleaseResult {
  */
 export function isGhAuthenticated(): boolean {
   try {
-    execSync('gh auth status', {
-      stdio: 'pipe',
-      encoding: 'utf-8',
+    execSync("gh auth status", {
+      stdio: "pipe",
+      encoding: "utf-8",
     });
     return true;
   } catch {
@@ -37,9 +37,9 @@ export function isGhAuthenticated(): boolean {
  */
 export function getRepoInfo(cwd: string): { owner: string; repo: string } | null {
   try {
-    const remote = execSync('git remote get-url origin', {
+    const remote = execSync("git remote get-url origin", {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
     }).trim();
 
     // Parse GitHub URL
@@ -51,7 +51,7 @@ export function getRepoInfo(cwd: string): { owner: string; repo: string } | null
     if (match) {
       return {
         owner: match[1],
-        repo: match[2].replace(/\.git$/, ''),
+        repo: match[2].replace(/\.git$/, ""),
       };
     }
 
@@ -66,7 +66,7 @@ export function getRepoInfo(cwd: string): { owner: string; repo: string } | null
  */
 export function buildReleaseInfo(
   pkg: VersionedPackage,
-  linearWorkspace?: string
+  linearWorkspace?: string,
 ): GitHubReleaseInfo {
   const tag = `${pkg.name}@${pkg.newVersion}`;
   const title = `${pkg.name} v${pkg.newVersion}`;
@@ -74,7 +74,7 @@ export function buildReleaseInfo(
   // Get changelog entry
   const changelogEntry = getLatestChangelogEntry(pkg.path);
 
-  let body = '';
+  let body = "";
   if (changelogEntry) {
     body = formatForGitHubRelease(changelogEntry, linearWorkspace);
   } else {
@@ -96,7 +96,7 @@ export function buildReleaseInfo(
 export function createGitHubRelease(
   releaseInfo: GitHubReleaseInfo,
   cwd: string,
-  dryRun: boolean = false
+  dryRun: boolean = false,
 ): CreateReleaseResult {
   if (dryRun) {
     console.log(`[dry-run] Would create release: ${releaseInfo.title}`);
@@ -106,31 +106,35 @@ export function createGitHubRelease(
   if (!isGhAuthenticated()) {
     return {
       success: false,
-      error: 'gh CLI not authenticated. Run: gh auth login',
+      error: "gh CLI not authenticated. Run: gh auth login",
     };
   }
 
   try {
     // Build gh release create command
     const args = [
-      'gh', 'release', 'create',
+      "gh",
+      "release",
+      "create",
       `"${releaseInfo.tag}"`,
-      '--title', `"${releaseInfo.title}"`,
-      '--notes', `"${escapeForShell(releaseInfo.body)}"`,
+      "--title",
+      `"${releaseInfo.title}"`,
+      "--notes",
+      `"${escapeForShell(releaseInfo.body)}"`,
     ];
 
     if (releaseInfo.prerelease) {
-      args.push('--prerelease');
+      args.push("--prerelease");
     }
 
     if (releaseInfo.draft) {
-      args.push('--draft');
+      args.push("--draft");
     }
 
-    const output = execSync(args.join(' '), {
+    const output = execSync(args.join(" "), {
       cwd,
-      encoding: 'utf-8',
-      shell: true,
+      encoding: "utf-8",
+      shell: "/bin/sh",
     });
 
     // gh release create outputs the URL
@@ -157,7 +161,7 @@ export function createGitHubReleases(
   options: {
     dryRun?: boolean;
     linearWorkspace?: string;
-  } = {}
+  } = {},
 ): Map<string, CreateReleaseResult> {
   const results = new Map<string, CreateReleaseResult>();
 
@@ -177,8 +181,8 @@ export function releaseExists(tag: string, cwd: string): boolean {
   try {
     execSync(`gh release view "${tag}"`, {
       cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
+      stdio: "pipe",
+      encoding: "utf-8",
     });
     return true;
   } catch {
@@ -191,9 +195,9 @@ export function releaseExists(tag: string, cwd: string): boolean {
  */
 function escapeForShell(str: string): string {
   return str
-    .replace(/\\/g, '\\\\')
+    .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"')
-    .replace(/\$/g, '\\$')
-    .replace(/`/g, '\\`')
-    .replace(/\n/g, '\\n');
+    .replace(/\$/g, "\\$")
+    .replace(/`/g, "\\`")
+    .replace(/\n/g, "\\n");
 }
