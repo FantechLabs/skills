@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/oxlintrc.json",
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    "**/.husky/**"
+  ]
+}
