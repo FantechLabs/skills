@@ -1,25 +1,25 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
-export type PackageManager = 'bun' | 'pnpm' | 'npm';
-export type ScriptRunner = 'bun' | 'tsx';
+export type PackageManager = "bun" | "pnpm" | "npm";
+export type ScriptRunner = "bun" | "tsx";
 
 /**
  * Detect package manager from lockfile
  */
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
-  if (existsSync(join(cwd, 'bun.lockb'))) return 'bun';
-  if (existsSync(join(cwd, 'pnpm-lock.yaml'))) return 'pnpm';
-  if (existsSync(join(cwd, 'package-lock.json'))) return 'npm';
-  return 'pnpm'; // default
+  if (existsSync(join(cwd, "bun.lock")) || existsSync(join(cwd, "bun.lockb"))) return "bun";
+  if (existsSync(join(cwd, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync(join(cwd, "package-lock.json"))) return "npm";
+  return "pnpm"; // default
 }
 
 /**
  * Detect script runner (bun or tsx)
  */
 export function detectScriptRunner(cwd: string = process.cwd()): ScriptRunner {
-  if (existsSync(join(cwd, 'bun.lockb'))) return 'bun';
-  return 'tsx';
+  if (existsSync(join(cwd, "bun.lock")) || existsSync(join(cwd, "bun.lockb"))) return "bun";
+  return "tsx";
 }
 
 /**
@@ -47,17 +47,17 @@ export function isInteractive(): boolean {
  */
 export function findMonorepoRoot(cwd: string = process.cwd()): string | null {
   let dir = cwd;
-  const root = '/';
+  const root = "/";
 
   while (dir !== root) {
     if (
-      existsSync(join(dir, 'turbo.json')) ||
-      existsSync(join(dir, 'pnpm-workspace.yaml')) ||
-      existsSync(join(dir, 'lerna.json'))
+      existsSync(join(dir, "turbo.json")) ||
+      existsSync(join(dir, "pnpm-workspace.yaml")) ||
+      existsSync(join(dir, "lerna.json"))
     ) {
       return dir;
     }
-    dir = join(dir, '..');
+    dir = join(dir, "..");
   }
 
   return null;

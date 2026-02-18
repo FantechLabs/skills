@@ -308,7 +308,7 @@ When all commits are internal (`chore`, `docs`, `test`, `ci`, `build`, `style`):
 Scripts detect package manager and runtime:
 
 ```bash
-# If bun.lockb exists
+# If bun.lock or bun.lockb exists
 bun scripts/changeset/create.ts
 
 # Otherwise

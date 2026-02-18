@@ -1,7 +1,7 @@
-import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
-import { findMonorepoRoot } from './runtime';
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, join, relative } from "node:path";
+import { findMonorepoRoot } from "./runtime";
 
 export interface PackageInfo {
   name: string;
@@ -24,7 +24,7 @@ export function getAllPackages(cwd: string = process.cwd()): PackageInfo[] {
   const packages: PackageInfo[] = [];
 
   // Standard monorepo directories
-  const packageDirs = ['apps', 'packages', 'tooling'];
+  const packageDirs = ["apps", "packages", "tooling"];
 
   for (const dir of packageDirs) {
     const dirPath = join(root, dir);
@@ -33,16 +33,16 @@ export function getAllPackages(cwd: string = process.cwd()): PackageInfo[] {
     const entries = readdirSync(dirPath);
     for (const entry of entries) {
       const entryPath = join(dirPath, entry);
-      const pkgJsonPath = join(entryPath, 'package.json');
+      const pkgJsonPath = join(entryPath, "package.json");
 
       if (statSync(entryPath).isDirectory() && existsSync(pkgJsonPath)) {
         try {
-          const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'));
+          const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
           packages.push({
             name: pkgJson.name || entry,
             path: entryPath,
             relativePath: relative(root, entryPath),
-            version: pkgJson.version || '0.0.0',
+            version: pkgJson.version || "0.0.0",
             private: pkgJson.private || false,
           });
         } catch {
@@ -53,15 +53,15 @@ export function getAllPackages(cwd: string = process.cwd()): PackageInfo[] {
   }
 
   // Also check root package.json for non-monorepo
-  const rootPkgPath = join(root, 'package.json');
+  const rootPkgPath = join(root, "package.json");
   if (packages.length === 0 && existsSync(rootPkgPath)) {
     try {
-      const pkgJson = JSON.parse(readFileSync(rootPkgPath, 'utf-8'));
+      const pkgJson = JSON.parse(readFileSync(rootPkgPath, "utf-8"));
       packages.push({
         name: pkgJson.name || basename(root),
         path: root,
-        relativePath: '.',
-        version: pkgJson.version || '0.0.0',
+        relativePath: ".",
+        version: pkgJson.version || "0.0.0",
         private: pkgJson.private || false,
       });
     } catch {
@@ -76,36 +76,36 @@ export function getAllPackages(cwd: string = process.cwd()): PackageInfo[] {
  * Get changed files since base branch
  */
 export function getChangedFiles(
-  baseBranch: string = 'main',
-  cwd: string = process.cwd()
+  baseBranch: string = "main",
+  cwd: string = process.cwd(),
 ): string[] {
   try {
     // Get merge base
     const mergeBase = execSync(`git merge-base ${baseBranch} HEAD`, {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
     }).trim();
 
     // Get changed files
     const output = execSync(`git diff --name-only ${mergeBase}...HEAD`, {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
     });
 
     return output
       .trim()
-      .split('\n')
+      .split("\n")
       .filter((f) => f.length > 0);
   } catch {
     // Fallback: compare with base branch directly
     try {
       const output = execSync(`git diff --name-only ${baseBranch}...HEAD`, {
         cwd,
-        encoding: 'utf-8',
+        encoding: "utf-8",
       });
       return output
         .trim()
-        .split('\n')
+        .split("\n")
         .filter((f) => f.length > 0);
     } catch {
       return [];
@@ -116,15 +116,9 @@ export function getChangedFiles(
 /**
  * Map a file path to its package
  */
-export function fileToPackage(
-  filePath: string,
-  packages: PackageInfo[]
-): PackageInfo | null {
+export function fileToPackage(filePath: string, packages: PackageInfo[]): PackageInfo | null {
   for (const pkg of packages) {
-    if (
-      filePath.startsWith(pkg.relativePath + '/') ||
-      filePath === pkg.relativePath
-    ) {
+    if (filePath.startsWith(pkg.relativePath + "/") || filePath === pkg.relativePath) {
       return pkg;
     }
   }
@@ -143,8 +137,8 @@ export function extractScope(filePath: string): string | null {
  * Get affected packages from changed files
  */
 export function getAffectedPackages(
-  baseBranch: string = 'main',
-  cwd: string = process.cwd()
+  baseBranch: string = "main",
+  cwd: string = process.cwd(),
 ): Map<string, PackageInfo> {
   const packages = getAllPackages(cwd);
   const changedFiles = getChangedFiles(baseBranch, cwd);
@@ -165,12 +159,12 @@ export function getAffectedPackages(
  */
 export function getCurrentBranch(cwd: string = process.cwd()): string {
   try {
-    return execSync('git symbolic-ref --short HEAD', {
+    return execSync("git symbolic-ref --short HEAD", {
       cwd,
-      encoding: 'utf-8',
+      encoding: "utf-8",
     }).trim();
   } catch {
-    return 'unknown';
+    return "unknown";
   }
 }
 

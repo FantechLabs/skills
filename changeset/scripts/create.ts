@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseArgs } from 'node:util';
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs } from "node:util";
 
 import {
   allCommitsInternal,
@@ -11,30 +11,30 @@ import {
   groupCommitsByScope,
   type BumpType,
   type ParsedCommit,
-} from './lib/commits';
+} from "./lib/commits";
 import {
   extractIssueKey,
   extractScope,
   getAllPackages,
   getChangedFiles,
   getCurrentBranch,
-} from './lib/packages';
-import * as prompts from './lib/prompts';
-import { findMonorepoRoot, isCI, isInteractive } from './lib/runtime';
-import { transformCommits } from './lib/transform';
+} from "./lib/packages";
+import * as prompts from "./lib/prompts";
+import { findMonorepoRoot, isInteractive } from "./lib/runtime";
+import { transformCommits } from "./lib/transform";
 
 // Parse command line arguments
 const { values: args } = parseArgs({
   options: {
-    ci: { type: 'boolean', default: false },
-    'dry-run': { type: 'boolean', default: false },
-    'no-ai': { type: 'boolean', default: false },
-    bullets: { type: 'boolean', default: false },
-    collapsed: { type: 'boolean', default: false },
-    'skip-empty': { type: 'boolean', default: false },
-    bump: { type: 'string' },
-    summary: { type: 'string' },
-    help: { type: 'boolean', default: false },
+    ci: { type: "boolean", default: false },
+    "dry-run": { type: "boolean", default: false },
+    "no-ai": { type: "boolean", default: false },
+    bullets: { type: "boolean", default: false },
+    collapsed: { type: "boolean", default: false },
+    "skip-empty": { type: "boolean", default: false },
+    bump: { type: "string" },
+    summary: { type: "string" },
+    help: { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
@@ -48,7 +48,7 @@ interface PackageAnalysis {
   commits: string[];
   parsedCommits: ParsedCommit[];
   codeTransform: string;
-  suggestedFormat: 'collapsed' | 'bullets';
+  suggestedFormat: "collapsed" | "bullets";
 }
 
 interface AnalysisResult {
@@ -82,9 +82,9 @@ Options:
  */
 function parseBumpOverrides(spec: string): Map<string, BumpType> {
   const overrides = new Map<string, BumpType>();
-  for (const part of spec.split(',')) {
-    const [scope, bump] = part.split(':');
-    if (scope && bump && ['major', 'minor', 'patch'].includes(bump)) {
+  for (const part of spec.split(",")) {
+    const [scope, bump] = part.split(":");
+    if (scope && bump && ["major", "minor", "patch"].includes(bump)) {
       overrides.set(scope.trim(), bump as BumpType);
     }
   }
@@ -97,8 +97,8 @@ function parseBumpOverrides(spec: string): Map<string, BumpType> {
  */
 function parseSummaryOverrides(spec: string): Map<string, string> {
   const overrides = new Map<string, string>();
-  for (const part of spec.split(',')) {
-    const colonIndex = part.indexOf(':');
+  for (const part of spec.split(",")) {
+    const colonIndex = part.indexOf(":");
     if (colonIndex > 0) {
       const scope = part.slice(0, colonIndex).trim();
       const summary = part.slice(colonIndex + 1).trim();
@@ -128,13 +128,11 @@ function analyze(cwd: string): AnalysisResult {
   }
 
   // Get commits and group by scope
-  const commits = getCommitsSince('main', cwd);
+  const commits = getCommitsSince("main", cwd);
   const grouped = groupCommitsByScope(commits, scopeToPackage);
 
   // Also check changed files for packages without scoped commits
-  const changedFiles = getChangedFiles('main', cwd);
-  const packagesByPath = new Map(packages.map((p) => [p.relativePath, p]));
-
+  const changedFiles = getChangedFiles("main", cwd);
   for (const file of changedFiles) {
     const scope = extractScope(file);
     if (!scope) continue;
@@ -148,8 +146,8 @@ function analyze(cwd: string): AnalysisResult {
           packageName: pkg.name,
           scope,
           commits: unscopedCommits,
-          suggestedBump: 'patch',
-          reason: 'changes detected',
+          suggestedBump: "patch",
+          reason: "changes detected",
         });
       }
     }
@@ -167,15 +165,14 @@ function analyze(cwd: string): AnalysisResult {
 
     // Filter out internal-only commits for bump calculation
     const userFacingCommits = group.commits.filter((c) =>
-      ['feat', 'fix', 'perf', 'refactor'].includes(c.type)
+      ["feat", "fix", "perf", "refactor"].includes(c.type),
     );
 
     if (userFacingCommits.length === 0 && !noChangesetNeeded) {
       continue; // Skip packages with only internal changes
     }
 
-    const commitsToUse =
-      userFacingCommits.length > 0 ? userFacingCommits : group.commits;
+    const commitsToUse = userFacingCommits.length > 0 ? userFacingCommits : group.commits;
     const related = areCommitsRelated(commitsToUse);
 
     analysisPackages.push({
@@ -186,8 +183,8 @@ function analyze(cwd: string): AnalysisResult {
       reason: group.reason,
       commits: group.commits.map((c) => c.raw),
       parsedCommits: group.commits,
-      codeTransform: transformCommits(commitsToUse, 'collapsed'),
-      suggestedFormat: related ? 'collapsed' : 'bullets',
+      codeTransform: transformCommits(commitsToUse, "collapsed"),
+      suggestedFormat: related ? "collapsed" : "bullets",
     });
   }
 
@@ -195,7 +192,7 @@ function analyze(cwd: string): AnalysisResult {
     branch,
     issueKey,
     packages: analysisPackages,
-    changesetFile: issueKey ? `${issueKey}.md` : 'changeset.md',
+    changesetFile: issueKey ? `${issueKey}.md` : "changeset.md",
     noChangesetNeeded,
   };
 }
@@ -209,22 +206,22 @@ function generateChangesetContent(
     bump: BumpType;
     summary: string;
   }>,
-  issueKey: string | null
+  issueKey: string | null,
 ): string {
   // YAML frontmatter
   const frontmatter = packages
-    .filter((p) => p.bump !== 'none')
+    .filter((p) => p.bump !== "none")
     .map((p) => `'${p.name}': ${p.bump}`)
-    .join('\n');
+    .join("\n");
 
   // Body with summaries
   const body = packages
-    .filter((p) => p.bump !== 'none')
+    .filter((p) => p.bump !== "none")
     .map((p) => p.summary)
-    .join('\n\n');
+    .join("\n\n");
 
   // Add issue key at end if present
-  const footer = issueKey ? `\n\n${issueKey}` : '';
+  const footer = issueKey ? `\n\n${issueKey}` : "";
 
   return `---\n${frontmatter}\n---\n\n${body}${footer}\n`;
 }
@@ -239,17 +236,17 @@ async function main(): Promise<void> {
   }
 
   const cwd = findMonorepoRoot(process.cwd()) || process.cwd();
-  const interactive = isInteractive() && !args.ci && !args['dry-run'];
+  const interactive = isInteractive() && !args.ci && !args["dry-run"];
 
   if (interactive) {
-    prompts.intro('Creating changeset');
+    prompts.intro("Creating changeset");
   }
 
   // Analyze
   const analysis = analyze(cwd);
 
   // Dry run - just output JSON
-  if (args['dry-run']) {
+  if (args["dry-run"]) {
     const output = {
       branch: analysis.branch,
       issueKey: analysis.issueKey,
@@ -272,28 +269,26 @@ async function main(): Promise<void> {
 
   // Handle no user-facing changes
   if (analysis.noChangesetNeeded || analysis.packages.length === 0) {
-    if (args['skip-empty']) {
-      console.log('No user-facing changes. Skipping changeset.');
+    if (args["skip-empty"]) {
+      console.log("No user-facing changes. Skipping changeset.");
       return;
     }
 
-    const createEmpty = interactive
-      ? await prompts.promptEmptyChangeset()
-      : true; // In CI, create empty by default
+    const createEmpty = interactive ? await prompts.promptEmptyChangeset() : true; // In CI, create empty by default
 
     if (createEmpty) {
-      const changesetDir = join(cwd, '.changeset');
+      const changesetDir = join(cwd, ".changeset");
       if (!existsSync(changesetDir)) {
         mkdirSync(changesetDir, { recursive: true });
       }
 
-      const content = `---\n---\n\nInternal changes only\n\n${analysis.issueKey || ''}\n`;
+      const content = `---\n---\n\nInternal changes only\n\n${analysis.issueKey || ""}\n`;
       const filePath = join(changesetDir, analysis.changesetFile);
       writeFileSync(filePath, content);
 
       if (interactive) {
         prompts.success(`Created empty changeset: ${analysis.changesetFile}`);
-        prompts.outro('Done');
+        prompts.outro("Done");
       } else {
         console.log(`Created: .changeset/${analysis.changesetFile}`);
       }
@@ -303,22 +298,18 @@ async function main(): Promise<void> {
 
   // Parse overrides
   const bumpOverrides = args.bump ? parseBumpOverrides(args.bump) : new Map();
-  const summaryOverrides = args.summary
-    ? parseSummaryOverrides(args.summary)
-    : new Map();
+  const summaryOverrides = args.summary ? parseSummaryOverrides(args.summary) : new Map();
 
   // Determine format
-  let format: 'collapsed' | 'bullets' = 'collapsed';
+  let format: "collapsed" | "bullets" = "collapsed";
   if (args.bullets) {
-    format = 'bullets';
+    format = "bullets";
   } else if (args.collapsed) {
-    format = 'collapsed';
+    format = "collapsed";
   } else if (!interactive) {
     // In CI/agent mode, use the suggested format based on commit analysis
-    const hasUnrelated = analysis.packages.some(
-      (p) => p.suggestedFormat === 'bullets'
-    );
-    format = hasUnrelated ? 'bullets' : 'collapsed';
+    const hasUnrelated = analysis.packages.some((p) => p.suggestedFormat === "bullets");
+    format = hasUnrelated ? "bullets" : "collapsed";
   }
 
   // Collect final values
@@ -345,18 +336,9 @@ async function main(): Promise<void> {
 
     // Interactive prompts
     if (interactive) {
-      prompts.displayCommits(
-        pkg.name,
-        pkg.commits,
-        pkg.suggestedBump,
-        pkg.reason
-      );
+      prompts.displayCommits(pkg.name, pkg.commits, pkg.suggestedBump, pkg.reason);
 
-      const bumpResult = await prompts.selectBumpType(
-        pkg.name,
-        bump,
-        pkg.reason
-      );
+      const bumpResult = await prompts.selectBumpType(pkg.name, bump, pkg.reason);
 
       if (bumpResult.skipped) {
         continue;
@@ -368,8 +350,8 @@ async function main(): Promise<void> {
     }
 
     // Format summary based on format preference
-    if (format === 'bullets' && !summary.startsWith('-')) {
-      summary = transformCommits(pkg.parsedCommits, 'bullets');
+    if (format === "bullets" && !summary.startsWith("-")) {
+      summary = transformCommits(pkg.parsedCommits, "bullets");
     }
 
     finalPackages.push({
@@ -381,10 +363,10 @@ async function main(): Promise<void> {
 
   if (finalPackages.length === 0) {
     if (interactive) {
-      prompts.warn('No packages selected for changeset');
-      prompts.outro('Cancelled');
+      prompts.warn("No packages selected for changeset");
+      prompts.outro("Cancelled");
     } else {
-      console.log('No packages selected for changeset');
+      console.log("No packages selected for changeset");
     }
     return;
   }
@@ -392,7 +374,7 @@ async function main(): Promise<void> {
   // Generate and write changeset
   const content = generateChangesetContent(finalPackages, analysis.issueKey);
 
-  const changesetDir = join(cwd, '.changeset');
+  const changesetDir = join(cwd, ".changeset");
   if (!existsSync(changesetDir)) {
     mkdirSync(changesetDir, { recursive: true });
   }
@@ -402,8 +384,8 @@ async function main(): Promise<void> {
 
   if (interactive) {
     prompts.success(`Created changeset: ${analysis.changesetFile}`);
-    prompts.note(content, 'Content');
-    prompts.outro('Done');
+    prompts.note(content, "Content");
+    prompts.outro("Done");
   } else {
     console.log(`Created: .changeset/${analysis.changesetFile}`);
     console.log(content);
@@ -411,6 +393,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('Error:', err.message);
+  console.error("Error:", err.message);
   process.exit(1);
 });

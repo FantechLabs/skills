@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
-import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseArgs } from 'node:util';
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs } from "node:util";
 
-import { findMonorepoRoot, isInteractive } from './lib/runtime';
-import * as prompts from './lib/prompts';
+import { findMonorepoRoot, isInteractive } from "./lib/runtime";
+import * as prompts from "./lib/prompts";
 
 const { values: args, positionals } = parseArgs({
   options: {
-    help: { type: 'boolean', default: false },
+    help: { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
@@ -43,7 +43,7 @@ interface PrereleaseStatus {
  * Get current prerelease status
  */
 function getStatus(cwd: string): PrereleaseStatus {
-  const preJsonPath = join(cwd, '.changeset', 'pre.json');
+  const preJsonPath = join(cwd, ".changeset", "pre.json");
 
   if (!existsSync(preJsonPath)) {
     return {
@@ -56,9 +56,9 @@ function getStatus(cwd: string): PrereleaseStatus {
   }
 
   try {
-    const content = JSON.parse(readFileSync(preJsonPath, 'utf-8'));
+    const content = JSON.parse(readFileSync(preJsonPath, "utf-8"));
     return {
-      active: content.mode === 'pre',
+      active: content.mode === "pre",
       mode: content.mode || null,
       tag: content.tag || null,
       initialVersions: content.initialVersions || {},
@@ -79,11 +79,11 @@ function getStatus(cwd: string): PrereleaseStatus {
  * Enter prerelease mode
  */
 function enterPrerelease(tag: string, cwd: string): void {
-  const validTags = ['alpha', 'beta', 'rc', 'next', 'canary'];
+  const validTags = ["alpha", "beta", "rc", "next", "canary"];
 
   if (!validTags.includes(tag)) {
     console.error(`Invalid prerelease tag: ${tag}`);
-    console.error(`Valid tags: ${validTags.join(', ')}`);
+    console.error(`Valid tags: ${validTags.join(", ")}`);
     process.exit(1);
   }
 
@@ -97,12 +97,12 @@ function enterPrerelease(tag: string, cwd: string): void {
   try {
     execSync(`pnpm changeset pre enter ${tag}`, {
       cwd,
-      stdio: 'inherit',
+      stdio: "inherit",
     });
     console.log(`\n✅ Entered prerelease mode: ${tag}`);
-    console.log('Future versions will be X.Y.Z-' + tag + '.N');
-  } catch (error) {
-    console.error('Failed to enter prerelease mode');
+    console.log("Future versions will be X.Y.Z-" + tag + ".N");
+  } catch {
+    console.error("Failed to enter prerelease mode");
     process.exit(1);
   }
 }
@@ -114,19 +114,19 @@ function exitPrerelease(cwd: string): void {
   const status = getStatus(cwd);
 
   if (!status.active) {
-    console.log('Not in prerelease mode.');
+    console.log("Not in prerelease mode.");
     return;
   }
 
   try {
-    execSync('pnpm changeset pre exit', {
+    execSync("pnpm changeset pre exit", {
       cwd,
-      stdio: 'inherit',
+      stdio: "inherit",
     });
-    console.log('\n✅ Exited prerelease mode');
-    console.log('Future versions will be stable (X.Y.Z)');
-  } catch (error) {
-    console.error('Failed to exit prerelease mode');
+    console.log("\n✅ Exited prerelease mode");
+    console.log("Future versions will be stable (X.Y.Z)");
+  } catch {
+    console.error("Failed to exit prerelease mode");
     process.exit(1);
   }
 }
@@ -141,17 +141,17 @@ function showStatus(cwd: string, interactive: boolean): void {
     if (status.active) {
       prompts.note(
         `Mode: ${status.mode}\nTag: ${status.tag}\nChangesets: ${status.changesets.length}`,
-        '🏷️  Prerelease Active'
+        "🏷️  Prerelease Active",
       );
 
       if (Object.keys(status.initialVersions).length > 0) {
         const versions = Object.entries(status.initialVersions)
           .map(([pkg, ver]) => `${pkg}: ${ver}`)
-          .join('\n');
-        prompts.note(versions, 'Initial Versions');
+          .join("\n");
+        prompts.note(versions, "Initial Versions");
       }
     } else {
-      prompts.log('Not in prerelease mode. Versions will be stable (X.Y.Z)');
+      prompts.log("Not in prerelease mode. Versions will be stable (X.Y.Z)");
     }
   } else {
     console.log(JSON.stringify(status, null, 2));
@@ -169,20 +169,20 @@ async function main(): Promise<void> {
   const interactive = isInteractive();
 
   switch (command) {
-    case 'enter':
+    case "enter":
       const tag = positionals[1];
       if (!tag) {
-        console.error('Error: Tag required (e.g., alpha, beta, rc)');
+        console.error("Error: Tag required (e.g., alpha, beta, rc)");
         process.exit(1);
       }
       enterPrerelease(tag, cwd);
       break;
 
-    case 'exit':
+    case "exit":
       exitPrerelease(cwd);
       break;
 
-    case 'status':
+    case "status":
       showStatus(cwd, interactive);
       break;
 
@@ -194,6 +194,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('Error:', err.message);
+  console.error("Error:", err.message);
   process.exit(1);
 });
