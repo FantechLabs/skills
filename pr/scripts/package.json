@@ -1,0 +1,19 @@
+{
+  "name": "@skills/pr-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pr": "bun create.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  }
+}
