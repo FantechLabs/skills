@@ -11,7 +11,9 @@
     "src/",
     "commit/",
     "changeset/",
+    "pr/",
     "release/",
+    "review/",
     "README.md",
     "LICENSE"
   ],
