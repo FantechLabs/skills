@@ -15,7 +15,7 @@ describe("cli help and version", () => {
     const result = runNodeCli(["--version"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+(-[\w.-]+)?(\+[\w.-]+)?$/);
   });
 
   it("errors on unknown command", () => {

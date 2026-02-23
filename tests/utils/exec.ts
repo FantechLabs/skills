@@ -26,6 +26,7 @@ export function runNodeCli(args: string[], options: CliOptions = {}): CliResult 
       ...options.env,
     },
     encoding: "utf-8",
+    timeout: 30_000,
   });
 
   return {

@@ -44,12 +44,12 @@
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^22.10.0",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^4.0.18",
     "husky": "^9.1.7",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",
     "typescript": "^5.8.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=20.10.0"

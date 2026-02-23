@@ -35,7 +35,17 @@ describe("skill entrypoint smoke tests", () => {
 
     expect(result.status).toBe(0);
 
-    const payload = JSON.parse(result.stdout);
+    const normalized = result.stdout.trim();
+    let payload: { type: string; description: string };
+
+    try {
+      payload = JSON.parse(normalized) as { type: string; description: string };
+    } catch {
+      throw new Error(
+        `Failed to parse dry-run JSON (status=${result.status}). Raw stdout:\n${result.stdout}`,
+      );
+    }
+
     expect(payload.type).toBe("feat");
     expect(payload.description).toBe("test dry run");
   });
@@ -44,7 +54,8 @@ describe("skill entrypoint smoke tests", () => {
     const temp = createTempProject();
 
     try {
-      execSync("git init -b main", { cwd: temp, stdio: "pipe" });
+      execSync("git init", { cwd: temp, stdio: "pipe" });
+      execSync("git branch -m main", { cwd: temp, stdio: "pipe" });
       execSync('git config user.email "tests@example.com"', { cwd: temp, stdio: "pipe" });
       execSync('git config user.name "Test Runner"', { cwd: temp, stdio: "pipe" });
 

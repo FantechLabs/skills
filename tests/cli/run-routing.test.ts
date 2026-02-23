@@ -18,6 +18,7 @@ describe("run command routing", () => {
   });
 
   it("fails for docs-only skills without scripts", () => {
+    // `review` is intentionally docs-only and should not be executable.
     const result = runNodeCli(["run", "review"]);
 
     expect(result.status).toBe(1);
