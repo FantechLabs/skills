@@ -68,6 +68,7 @@ bun run ci:test
 - `bun run test:coverage`: generate coverage report.
 - `bun run test:bun-smoke`: verify Bun can execute core CLI entrypoints.
 - `bun run ci:test`: lint + typecheck + tests + Bun smoke checks.
+- CI runs this suite on Node `20`, `22`, and `24`, plus a dedicated Bun job.
 
 ## Hooks
 

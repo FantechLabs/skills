@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        node-version: [20, 22, 24]
 
     steps:
       - name: Checkout
@@ -40,8 +40,8 @@ jobs:
       - name: Unit tests
         run: bun run test
 
-  bun-smoke:
-    name: Bun smoke
+  bun-tests:
+    name: Bun tests
     runs-on: ubuntu-latest
 
     steps:
@@ -51,13 +51,17 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun run test
 
       - name: Bun smoke tests
         run: bun run test:bun-smoke
