@@ -20,7 +20,6 @@ npx @fantech/skills install commit --yes --agent claude
 npx @fantech/skills install commit --yes --ruler
 npx @fantech/skills run changeset validate
 npx @fantech/skills run commit --help
-npx @fantech/skills commit --help
 ```
 
 ## Install This Repo's Skills via `skills.sh`
