@@ -2,24 +2,41 @@
 
 Shared agent skills and a CLI for installing and running them.
 
-## CLI
+## Project CLI (`@fantech/skills`)
 
-Run via npm:
+Run directly without a global install:
+
+```bash
+npx @fantech/skills --help
+bunx @fantech/skills --help
+```
+
+Common usage:
 
 ```bash
 npx @fantech/skills list
-npx @fantech/skills install commit
+npx @fantech/skills install commit --yes
+npx @fantech/skills install commit --yes --agent claude
+npx @fantech/skills install commit --yes --ruler
 npx @fantech/skills run changeset validate
+npx @fantech/skills run commit --help
+npx @fantech/skills commit --help
 ```
 
-Run via Bun:
+## Install This Repo's Skills via `skills.sh`
+
+[`skills.sh`](https://www.skills.sh/) can install individual skills from this repository by URL:
 
 ```bash
-bunx @fantech/skills list
-bunx --bun @fantech/skills run release --dry-run
+npx skills add https://github.com/FantechLabs/skills --skill commit
+npx skills add https://github.com/FantechLabs/skills --skill changeset
+npx skills add https://github.com/FantechLabs/skills --skill pr
 ```
 
-## Commands
+Use the same pattern for any other skill folder in this repo:
+`npx skills add https://github.com/FantechLabs/skills --skill <skill-name>`.
+
+## CLI Commands
 
 - `skills list`
 - `skills install [skills...]`
@@ -31,10 +48,26 @@ bunx --bun @fantech/skills run release --dry-run
 
 ```bash
 bun install
-npm run lint
-npm run format:check
-npm run typecheck
+bun run lint
+bun run format:check
+bun run typecheck
 ```
+
+## Testing
+
+```bash
+bun run test
+bun run test:watch
+bun run test:coverage
+bun run test:bun-smoke
+bun run ci:test
+```
+
+- `bun run test`: full Vitest suite.
+- `bun run test:watch`: watch mode during development.
+- `bun run test:coverage`: generate coverage report.
+- `bun run test:bun-smoke`: verify Bun can execute core CLI entrypoints.
+- `bun run ci:test`: lint + typecheck + tests + Bun smoke checks.
 
 ## Hooks
 

@@ -24,12 +24,17 @@
   "scripts": {
     "skills": "node ./bin/skills.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src commit/scripts release/scripts changeset/scripts",
-    "format": "oxfmt src commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json",
-    "format:check": "oxfmt --check src commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json",
-    "precommit": "npm run -s lint && npm run -s format:check && npm run -s typecheck",
+    "lint": "oxlint src tests commit/scripts release/scripts changeset/scripts vitest.config.ts",
+    "format": "oxfmt src tests commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
+    "format:check": "oxfmt --check src tests commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
+    "precommit": "bun run lint && bun run format:check && bun run typecheck",
     "commitlint": "commitlint",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:bun-smoke": "bash ./scripts/test-bun-smoke.sh",
+    "ci:test": "bun run lint && bun run typecheck && bun run test && bun run test:bun-smoke"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
@@ -39,10 +44,12 @@
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.8",
     "husky": "^9.1.7",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": ">=20.10.0"
