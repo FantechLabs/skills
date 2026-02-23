@@ -45,6 +45,23 @@ Use the same pattern for any other skill folder in this repo:
 - `skills remove` (reserved, coming soon)
 - `skills update` (reserved, coming soon)
 
+## Skill Script Routing
+
+Runnable skills are auto-discovered from each skill's `scripts/` directory.
+
+For multi-script skills, you can define an explicit default in `SKILL.md` frontmatter:
+
+```yaml
+---
+name: my-skill
+description: My skill
+default_script: create
+---
+```
+
+- `default_script` can be a subcommand name (`create`) or script file (`create.ts`).
+- If omitted, the CLI falls back to: `<skill-name>`, then `create`, then single-script fallback.
+
 ## Development
 
 ```bash
