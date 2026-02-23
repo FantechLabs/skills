@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 export interface AgentInfo {
@@ -75,4 +76,30 @@ export function resolveAgentInstallPath(cwd: string, agentName: string): string 
   }
 
   return join(cwd, `.${normalized}`, "skills");
+}
+
+export function resolveGlobalAgentInstallPath(agentName: string): string {
+  const normalized = agentName.trim().toLowerCase();
+  const home = homedir();
+
+  const known = KNOWN_AGENTS.find(
+    (agent) => agent.id === normalized || agent.name.toLowerCase() === normalized,
+  );
+  if (known) {
+    if (known.supportsAgentsDir) {
+      return join(home, ".agents", "skills");
+    }
+
+    return join(home, ".claude", "skills");
+  }
+
+  if (normalized === "agents") {
+    return join(home, ".agents", "skills");
+  }
+
+  if (normalized === "claude" || normalized === "cursor") {
+    return join(home, ".claude", "skills");
+  }
+
+  return join(home, `.${normalized}`, "skills");
 }
