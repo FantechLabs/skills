@@ -10,6 +10,13 @@ export interface AgentInfo {
   supportsAgentsDir: boolean;
 }
 
+export interface GlobalAgentTarget {
+  id: "agents" | "claude" | "cursor";
+  baseDir: string;
+  installDir: string;
+  aliases: string[];
+}
+
 const KNOWN_AGENTS: AgentInfo[] = [
   {
     id: "claude",
@@ -38,6 +45,27 @@ const KNOWN_AGENTS: AgentInfo[] = [
     configDir: ".opencode",
     installDir: ".agents/skills",
     supportsAgentsDir: true,
+  },
+];
+
+const GLOBAL_AGENT_TARGETS: GlobalAgentTarget[] = [
+  {
+    id: "agents",
+    baseDir: ".agents",
+    installDir: ".agents/skills",
+    aliases: ["agents", "codex", "opencode"],
+  },
+  {
+    id: "claude",
+    baseDir: ".claude",
+    installDir: ".claude/skills",
+    aliases: ["claude", "claude code"],
+  },
+  {
+    id: "cursor",
+    baseDir: ".cursor",
+    installDir: ".cursor/skills",
+    aliases: ["cursor"],
   },
 ];
 
@@ -78,9 +106,23 @@ export function resolveAgentInstallPath(cwd: string, agentName: string): string 
   return join(cwd, `.${normalized}`, "skills");
 }
 
+export function detectGlobalAgentTargets(homeDir: string = homedir()): GlobalAgentTarget[] {
+  return GLOBAL_AGENT_TARGETS.filter((target) => existsSync(join(homeDir, target.baseDir)));
+}
+
+export function resolveGlobalAgentTarget(agentName: string): GlobalAgentTarget | null {
+  const normalized = agentName.trim().toLowerCase();
+  return GLOBAL_AGENT_TARGETS.find((target) => target.aliases.includes(normalized)) ?? null;
+}
+
 export function resolveGlobalAgentInstallPath(agentName: string): string {
   const normalized = agentName.trim().toLowerCase();
   const home = homedir();
+
+  const target = resolveGlobalAgentTarget(agentName);
+  if (target) {
+    return join(home, target.installDir);
+  }
 
   const known = KNOWN_AGENTS.find(
     (agent) => agent.id === normalized || agent.name.toLowerCase() === normalized,
@@ -90,14 +132,6 @@ export function resolveGlobalAgentInstallPath(agentName: string): string {
       return join(home, ".agents", "skills");
     }
 
-    return join(home, ".claude", "skills");
-  }
-
-  if (normalized === "agents") {
-    return join(home, ".agents", "skills");
-  }
-
-  if (normalized === "claude" || normalized === "cursor") {
     return join(home, ".claude", "skills");
   }
 

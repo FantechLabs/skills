@@ -22,6 +22,24 @@ npx @fantech/skills run changeset validate
 npx @fantech/skills run commit --help
 ```
 
+## Supported Agents
+
+| Agent | Local | Global | `--global --symlink` | Status |
+|---|---|---|---|---|
+| Ruler | `--ruler` or `.ruler/ruler.toml` -> `.ruler/skills` | — | — | 🏠 local-only |
+| Codex | `.codex` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
+| OpenCode | `.opencode` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
+| Claude Code | `.claude` -> `.claude/skills` | `~/.claude` -> `~/.claude/skills` | 🔗 target | ✅ |
+| Cursor | `.cursor` -> `.cursor/skills` | `~/.cursor` -> `~/.cursor/skills` | 🔗 target | ✅ |
+
+Legend:
+- `🟢 source`: symlink source directory
+- `🔗 target`: symlink target directory
+
+## Adding Support for a New Agent
+
+Use this playbook: [docs/adding-agent-support.md](docs/adding-agent-support.md)
+
 ## Install This Repo's Skills via `skills.sh`
 
 [`skills.sh`](https://www.skills.sh/) is a separate external CLI from Vercel Labs.
