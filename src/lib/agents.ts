@@ -11,7 +11,7 @@ export interface AgentInfo {
 }
 
 export interface GlobalAgentTarget {
-  id: "agents" | "claude" | "cursor";
+  id: "agents" | "claude" | "cursor" | "pi" | "hermes" | "openclaw";
   baseDir: string;
   installDir: string;
   aliases: string[];
@@ -46,6 +46,20 @@ const KNOWN_AGENTS: AgentInfo[] = [
     installDir: ".agents/skills",
     supportsAgentsDir: true,
   },
+  {
+    id: "pi",
+    name: "Pi",
+    configDir: ".pi",
+    installDir: ".agents/skills",
+    supportsAgentsDir: true,
+  },
+  {
+    id: "openclaw",
+    name: "OpenClaw",
+    configDir: "openclaw.json",
+    installDir: "skills",
+    supportsAgentsDir: false,
+  },
 ];
 
 const GLOBAL_AGENT_TARGETS: GlobalAgentTarget[] = [
@@ -66,6 +80,24 @@ const GLOBAL_AGENT_TARGETS: GlobalAgentTarget[] = [
     baseDir: ".cursor",
     installDir: ".cursor/skills",
     aliases: ["cursor"],
+  },
+  {
+    id: "pi",
+    baseDir: ".pi",
+    installDir: ".pi/agent/skills",
+    aliases: ["pi", "pi agent"],
+  },
+  {
+    id: "hermes",
+    baseDir: ".hermes",
+    installDir: ".hermes/skills",
+    aliases: ["hermes", "hermes agent"],
+  },
+  {
+    id: "openclaw",
+    baseDir: ".openclaw",
+    installDir: ".openclaw/skills",
+    aliases: ["openclaw", "openclaw agent", "claw"],
   },
 ];
 
@@ -99,7 +131,7 @@ export function resolveAgentInstallPath(cwd: string, agentName: string): string 
     return join(cwd, known.installDir);
   }
 
-  if (normalized === "agents") {
+  if (normalized === "agents" || normalized === "hermes") {
     return join(cwd, ".agents", "skills");
   }
 
@@ -132,7 +164,7 @@ export function resolveGlobalAgentInstallPath(agentName: string): string {
       return join(home, ".agents", "skills");
     }
 
-    return join(home, ".claude", "skills");
+    return join(home, known.installDir);
   }
 
   return join(home, `.${normalized}`, "skills");

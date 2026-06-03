@@ -61,12 +61,14 @@ export function findInstalledSkills(cwd: string): Map<string, string[]> {
   const installed = new Map<string, string[]>();
 
   const candidateDirs = [
+    join(cwd, "skills"),
     join(cwd, ".ruler", "skills"),
     join(cwd, ".agents", "skills"),
     join(cwd, ".claude", "skills"),
     join(cwd, ".cursor", "skills"),
     join(cwd, ".codex", "skills"),
     join(cwd, ".opencode", "skills"),
+    join(cwd, ".pi", "skills"),
   ];
 
   for (const baseDir of candidateDirs) {

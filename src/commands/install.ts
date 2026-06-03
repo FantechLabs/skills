@@ -427,7 +427,7 @@ async function resolveGlobalInstallTargets(
 
   if (detectedGlobalTargets.length === 0) {
     console.error(
-      "No supported global agent directories found. Expected one of: ~/.agents, ~/.claude, ~/.cursor",
+      "No supported global agent directories found. Expected one of: ~/.agents, ~/.claude, ~/.cursor, ~/.pi, ~/.hermes, ~/.openclaw",
     );
     process.exit(1);
   }
@@ -442,7 +442,9 @@ async function resolveGlobalInstallTargets(
       const target = resolveGlobalAgentTarget(agentName);
       if (!target) {
         console.error(`Unsupported global agent target: ${agentName}`);
-        console.error("Supported global agent targets: agents, codex, opencode, claude, cursor");
+        console.error(
+          "Supported global agent targets: agents, codex, opencode, claude, cursor, pi, hermes, openclaw",
+        );
         process.exit(1);
       }
 
@@ -470,7 +472,7 @@ async function resolveGlobalInstallTargets(
         {
           value: "symlink",
           label: "Prefer ~/.agents + symlink",
-          hint: "Install in ~/.agents/skills and symlink into ~/.claude/skills / ~/.cursor/skills",
+          hint: "Install in ~/.agents/skills and symlink into detected dedicated skill roots",
         },
       ],
     });
@@ -486,6 +488,9 @@ async function resolveGlobalInstallTargets(
   const globalAgentsDir = join(homedir(), ".agents", "skills");
   const globalClaudeDir = join(homedir(), ".claude", "skills");
   const globalCursorDir = join(homedir(), ".cursor", "skills");
+  const globalPiDir = join(homedir(), ".pi", "agent", "skills");
+  const globalHermesDir = join(homedir(), ".hermes", "skills");
+  const globalOpenClawDir = join(homedir(), ".openclaw", "skills");
 
   if (useSymlinkMode) {
     if (!targetIds.has("agents")) {
@@ -512,6 +517,18 @@ async function resolveGlobalInstallTargets(
     installPaths.push(globalCursorDir);
   }
 
+  if (selectedTargetIds.has("pi")) {
+    installPaths.push(globalPiDir);
+  }
+
+  if (selectedTargetIds.has("hermes")) {
+    installPaths.push(globalHermesDir);
+  }
+
+  if (selectedTargetIds.has("openclaw")) {
+    installPaths.push(globalOpenClawDir);
+  }
+
   return { installPaths, useSymlinkMode };
 }
 
@@ -522,6 +539,9 @@ function linkGlobalSymlinkTargets(
   const globalAgentsDir = join(homedir(), ".agents", "skills");
   const globalClaudeDir = join(homedir(), ".claude", "skills");
   const globalCursorDir = join(homedir(), ".cursor", "skills");
+  const globalPiDir = join(homedir(), ".pi", "agent", "skills");
+  const globalHermesDir = join(homedir(), ".hermes", "skills");
+  const globalOpenClawDir = join(homedir(), ".openclaw", "skills");
   const detectedGlobalTargets = detectGlobalAgentTargets();
   const targetIds = new Set(detectedGlobalTargets.map((target) => target.id));
 
@@ -539,6 +559,11 @@ function linkGlobalSymlinkTargets(
     targetIds.has("claude") && (!requestedTargets || requestedTargets.has("claude"));
   const shouldLinkCursor =
     targetIds.has("cursor") && (!requestedTargets || requestedTargets.has("cursor"));
+  const shouldLinkPi = targetIds.has("pi") && (!requestedTargets || requestedTargets.has("pi"));
+  const shouldLinkHermes =
+    targetIds.has("hermes") && (!requestedTargets || requestedTargets.has("hermes"));
+  const shouldLinkOpenClaw =
+    targetIds.has("openclaw") && (!requestedTargets || requestedTargets.has("openclaw"));
 
   if (shouldLinkClaude) {
     mkdirSync(globalClaudeDir, { recursive: true });
@@ -546,6 +571,18 @@ function linkGlobalSymlinkTargets(
 
   if (shouldLinkCursor) {
     mkdirSync(globalCursorDir, { recursive: true });
+  }
+
+  if (shouldLinkPi) {
+    mkdirSync(globalPiDir, { recursive: true });
+  }
+
+  if (shouldLinkHermes) {
+    mkdirSync(globalHermesDir, { recursive: true });
+  }
+
+  if (shouldLinkOpenClaw) {
+    mkdirSync(globalOpenClawDir, { recursive: true });
   }
 
   for (const plan of selectedSkills) {
@@ -558,6 +595,18 @@ function linkGlobalSymlinkTargets(
 
     if (shouldLinkCursor) {
       linkTargets.push(join(globalCursorDir, plan.skill.name));
+    }
+
+    if (shouldLinkPi) {
+      linkTargets.push(join(globalPiDir, plan.skill.name));
+    }
+
+    if (shouldLinkHermes) {
+      linkTargets.push(join(globalHermesDir, plan.skill.name));
+    }
+
+    if (shouldLinkOpenClaw) {
+      linkTargets.push(join(globalOpenClawDir, plan.skill.name));
     }
 
     for (const target of linkTargets) {

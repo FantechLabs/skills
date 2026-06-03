@@ -68,6 +68,39 @@ describe("install command", () => {
     expect(existsSync(join(cwd, ".claude", "skills", "commit", "SKILL.md"))).toBe(true);
   });
 
+  it("supports explicit Pi agent target through the shared .agents skills root", () => {
+    const cwd = makeTempProject();
+    const result = runNodeCli(["install", "commit", "--yes", "--skip-deps", "--agent", "pi"], {
+      cwd,
+    });
+
+    expect(result.status).toBe(0);
+    expect(existsSync(join(cwd, ".agents", "skills", "commit", "SKILL.md"))).toBe(true);
+  });
+
+  it("supports explicit OpenClaw workspace target", () => {
+    const cwd = makeTempProject();
+    const result = runNodeCli(
+      ["install", "commit", "--yes", "--skip-deps", "--agent", "openclaw"],
+      { cwd },
+    );
+
+    expect(result.status).toBe(0);
+    expect(existsSync(join(cwd, "skills", "commit", "SKILL.md"))).toBe(true);
+  });
+
+  it("auto-detects Pi and OpenClaw local config", () => {
+    const cwd = makeTempProject();
+    mkdirSync(join(cwd, ".pi"), { recursive: true });
+    writeFileSync(join(cwd, "openclaw.json"), "{}\n", "utf-8");
+
+    const result = runNodeCli(["install", "commit", "--yes", "--skip-deps"], { cwd });
+
+    expect(result.status).toBe(0);
+    expect(existsSync(join(cwd, ".agents", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(cwd, "skills", "commit", "SKILL.md"))).toBe(true);
+  });
+
   it("supports ruler install target", () => {
     const cwd = makeTempProject();
     const result = runNodeCli(["install", "commit", "--yes", "--skip-deps", "--ruler"], { cwd });
@@ -89,6 +122,9 @@ describe("install command", () => {
     const home = makeTempProject();
     mkdirSync(join(home, ".agents"), { recursive: true });
     mkdirSync(join(home, ".cursor"), { recursive: true });
+    mkdirSync(join(home, ".pi"), { recursive: true });
+    mkdirSync(join(home, ".hermes"), { recursive: true });
+    mkdirSync(join(home, ".openclaw"), { recursive: true });
 
     const result = runNodeCli(["install", "commit", "--yes", "--global", "--skip-deps"], {
       cwd,
@@ -98,6 +134,9 @@ describe("install command", () => {
     expect(result.status).toBe(0);
     expect(existsSync(join(home, ".agents", "skills", "commit", "SKILL.md"))).toBe(true);
     expect(existsSync(join(home, ".cursor", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".pi", "agent", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".hermes", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".openclaw", "skills", "commit", "SKILL.md"))).toBe(true);
     expect(existsSync(join(home, ".claude", "skills", "commit", "SKILL.md"))).toBe(false);
   });
 
@@ -135,12 +174,44 @@ describe("install command", () => {
     );
   });
 
+  it("supports explicit global Pi and Hermes targets", () => {
+    const cwd = makeTempProject();
+    const home = makeTempProject();
+    mkdirSync(join(home, ".agents"), { recursive: true });
+    mkdirSync(join(home, ".pi"), { recursive: true });
+    mkdirSync(join(home, ".hermes"), { recursive: true });
+
+    const result = runNodeCli(
+      [
+        "install",
+        "commit",
+        "--yes",
+        "--global",
+        "--skip-deps",
+        "--agent",
+        "pi",
+        "--agent",
+        "hermes",
+      ],
+      {
+        cwd,
+        env: { HOME: home },
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(existsSync(join(home, ".pi", "agent", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".hermes", "skills", "commit", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(home, ".agents", "skills", "commit", "SKILL.md"))).toBe(false);
+  });
+
   it("supports global symlink mode for detected Claude and Cursor", () => {
     const cwd = makeTempProject();
     const home = makeTempProject();
     mkdirSync(join(home, ".agents"), { recursive: true });
     mkdirSync(join(home, ".claude"), { recursive: true });
     mkdirSync(join(home, ".cursor"), { recursive: true });
+    mkdirSync(join(home, ".openclaw"), { recursive: true });
 
     const result = runNodeCli(
       ["install", "commit", "--yes", "--global", "--symlink", "--skip-deps"],
@@ -155,12 +226,15 @@ describe("install command", () => {
     const source = join(home, ".agents", "skills", "commit");
     const claudeTarget = join(home, ".claude", "skills", "commit");
     const cursorTarget = join(home, ".cursor", "skills", "commit");
+    const openClawTarget = join(home, ".openclaw", "skills", "commit");
 
     expect(existsSync(join(source, "SKILL.md"))).toBe(true);
     expect(lstatSync(claudeTarget).isSymbolicLink()).toBe(true);
     expect(lstatSync(cursorTarget).isSymbolicLink()).toBe(true);
+    expect(lstatSync(openClawTarget).isSymbolicLink()).toBe(true);
     expect(readlinkSync(claudeTarget)).toBe(source);
     expect(readlinkSync(cursorTarget)).toBe(source);
+    expect(readlinkSync(openClawTarget)).toBe(source);
   });
 
   it("supports explicit global symlink target while using ~/.agents as source", () => {
