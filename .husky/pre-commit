@@ -1,1 +1,25 @@
+#!/usr/bin/env sh
+set -eu
+
+stash_name="pre-commit-keep-index-$(date +%s)"
+stash_created=0
+
+# Pre-commit checks should validate what is staged, not in-progress local WIP.
+if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  git stash push --keep-index --include-untracked -m "$stash_name" >/dev/null
+  stash_created=1
+fi
+
+cleanup() {
+  if [ "$stash_created" -eq 1 ]; then
+    if ! git stash pop --index >/dev/null; then
+      echo "Failed to restore unstaged changes from stash."
+      echo "Run 'git stash list' and restore the latest pre-commit stash manually."
+      exit 1
+    fi
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
 npm run -s precommit

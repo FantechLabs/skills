@@ -108,5 +108,5 @@ bun run ci:test
 
 ## Hooks
 
-- `pre-commit`: `oxlint` + `oxfmt --check` + `tsc --noEmit`
-- `commit-msg`: `commitlint` with conventional commit rules
+- `pre-commit`: `oxlint` + `oxfmt --check` on staged snapshot
+- `commit-msg`: `commitlint` + `tsc --noEmit` (skipped when commit message is explicitly marked as WIP)
