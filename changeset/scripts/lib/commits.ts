@@ -151,7 +151,7 @@ export function groupCommitsByScope(
     const scope = commit.scope;
     if (!scope) continue;
 
-    const packageName = scopeToPackage.get(scope);
+    const packageName = scopeToPackage.get(scope) || scopeToPackage.get(scope.toLowerCase());
     if (!packageName) continue;
 
     if (!grouped.has(packageName)) {

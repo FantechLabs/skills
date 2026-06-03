@@ -7,17 +7,20 @@ import { parseArgs } from "node:util";
 import {
   allCommitsInternal,
   areCommitsRelated,
+  getBumpFromCommitType,
   getCommitsSince,
+  getHighestBump,
   groupCommitsByScope,
   type BumpType,
   type ParsedCommit,
 } from "./lib/commits";
 import {
   extractIssueKey,
-  extractScope,
+  fileToPackage,
   getAllPackages,
   getChangedFiles,
   getCurrentBranch,
+  getPackageScopes,
 } from "./lib/packages";
 import * as prompts from "./lib/prompts";
 import { findMonorepoRoot, isInteractive } from "./lib/runtime";
@@ -42,11 +45,13 @@ const { values: args } = parseArgs({
 interface PackageAnalysis {
   name: string;
   path: string;
+  relativePath: string;
   currentVersion: string;
   suggestedBump: BumpType;
   reason: string;
   commits: string[];
   parsedCommits: ParsedCommit[];
+  scopeAliases: string[];
   codeTransform: string;
   suggestedFormat: "collapsed" | "bullets";
 }
@@ -85,7 +90,9 @@ function parseBumpOverrides(spec: string): Map<string, BumpType> {
   for (const part of spec.split(",")) {
     const [scope, bump] = part.split(":");
     if (scope && bump && ["major", "minor", "patch"].includes(bump)) {
-      overrides.set(scope.trim(), bump as BumpType);
+      const key = scope.trim();
+      overrides.set(key, bump as BumpType);
+      overrides.set(key.toLowerCase(), bump as BumpType);
     }
   }
   return overrides;
@@ -104,10 +111,24 @@ function parseSummaryOverrides(spec: string): Map<string, string> {
       const summary = part.slice(colonIndex + 1).trim();
       if (scope && summary) {
         overrides.set(scope, summary);
+        overrides.set(scope.toLowerCase(), summary);
       }
     }
   }
   return overrides;
+}
+
+function resolveOverride<T>(overrides: Map<string, T>, aliases: string[]): T | undefined {
+  for (const alias of aliases) {
+    if (overrides.has(alias)) {
+      return overrides.get(alias);
+    }
+    const lowercase = alias.toLowerCase();
+    if (overrides.has(lowercase)) {
+      return overrides.get(lowercase);
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -120,10 +141,13 @@ function analyze(cwd: string): AnalysisResult {
 
   // Build scope → package name mapping
   const scopeToPackage = new Map<string, string>();
+  const packageScopeAliases = new Map<string, string[]>();
   for (const pkg of packages) {
-    const scope = extractScope(pkg.relativePath);
-    if (scope) {
+    const scopes = getPackageScopes(pkg);
+    packageScopeAliases.set(pkg.name, scopes);
+    for (const scope of scopes) {
       scopeToPackage.set(scope, pkg.name);
+      scopeToPackage.set(scope.toLowerCase(), pkg.name);
     }
   }
 
@@ -131,26 +155,31 @@ function analyze(cwd: string): AnalysisResult {
   const commits = getCommitsSince("main", cwd);
   const grouped = groupCommitsByScope(commits, scopeToPackage);
 
-  // Also check changed files for packages without scoped commits
+  // Also check changed files for packages without scoped commits.
+  const unscopedCommits = commits.filter((c) => !c.scope);
+  const unscopedSuggestedBump = getHighestBump(unscopedCommits.map(getBumpFromCommitType));
   const changedFiles = getChangedFiles("main", cwd);
-  for (const file of changedFiles) {
-    const scope = extractScope(file);
-    if (!scope) continue;
+  const changedPackages = new Map<string, (typeof packages)[number]>();
 
-    const pkg = packages.find((p) => p.relativePath.includes(scope));
-    if (pkg && !grouped.has(pkg.name)) {
-      // Package has changes but no scoped commits - check for unscoped commits
-      const unscopedCommits = commits.filter((c) => !c.scope);
-      if (unscopedCommits.length > 0) {
-        grouped.set(pkg.name, {
-          packageName: pkg.name,
-          scope,
-          commits: unscopedCommits,
-          suggestedBump: "patch",
-          reason: "changes detected",
-        });
-      }
+  for (const file of changedFiles) {
+    const pkg = fileToPackage(file, packages);
+    if (pkg) {
+      changedPackages.set(pkg.name, pkg);
     }
+  }
+
+  for (const pkg of changedPackages.values()) {
+    if (grouped.has(pkg.name) || unscopedCommits.length === 0) {
+      continue;
+    }
+
+    grouped.set(pkg.name, {
+      packageName: pkg.name,
+      scope: packageScopeAliases.get(pkg.name)?.[0] || pkg.name,
+      commits: unscopedCommits,
+      suggestedBump: unscopedSuggestedBump === "none" ? "patch" : unscopedSuggestedBump,
+      reason: "changes detected with unscoped commits",
+    });
   }
 
   // Check if all commits are internal
@@ -178,11 +207,13 @@ function analyze(cwd: string): AnalysisResult {
     analysisPackages.push({
       name: pkgName,
       path: pkg.path,
+      relativePath: pkg.relativePath,
       currentVersion: pkg.version,
       suggestedBump: group.suggestedBump,
       reason: group.reason,
       commits: group.commits.map((c) => c.raw),
       parsedCommits: group.commits,
+      scopeAliases: packageScopeAliases.get(pkg.name) || [group.scope],
       codeTransform: transformCommits(commitsToUse, "collapsed"),
       suggestedFormat: related ? "collapsed" : "bullets",
     });
@@ -253,6 +284,7 @@ async function main(): Promise<void> {
       packages: analysis.packages.map((p) => ({
         name: p.name,
         path: p.path,
+        relativePath: p.relativePath,
         currentVersion: p.currentVersion,
         suggestedBump: p.suggestedBump,
         reason: p.reason,
@@ -324,14 +356,14 @@ async function main(): Promise<void> {
     let summary = pkg.codeTransform;
 
     // Apply overrides
-    const scopeMatch = pkg.path.match(/(?:apps|packages|tooling)\/([^/]+)/);
-    const scope = scopeMatch ? scopeMatch[1] : pkg.name;
+    const bumpOverride = resolveOverride(bumpOverrides, pkg.scopeAliases);
+    const summaryOverride = resolveOverride(summaryOverrides, pkg.scopeAliases);
 
-    if (bumpOverrides.has(scope)) {
-      bump = bumpOverrides.get(scope)!;
+    if (bumpOverride) {
+      bump = bumpOverride;
     }
-    if (summaryOverrides.has(scope)) {
-      summary = summaryOverrides.get(scope)!;
+    if (summaryOverride) {
+      summary = summaryOverride;
     }
 
     // Interactive prompts
