@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type PackageManager = "bun" | "pnpm" | "npm";
@@ -53,7 +53,8 @@ export function findMonorepoRoot(cwd: string = process.cwd()): string | null {
     if (
       existsSync(join(dir, "turbo.json")) ||
       existsSync(join(dir, "pnpm-workspace.yaml")) ||
-      existsSync(join(dir, "lerna.json"))
+      existsSync(join(dir, "lerna.json")) ||
+      hasWorkspaceConfig(dir)
     ) {
       return dir;
     }
@@ -68,4 +69,33 @@ export function findMonorepoRoot(cwd: string = process.cwd()): string | null {
  */
 export function isMonorepo(cwd: string = process.cwd()): boolean {
   return findMonorepoRoot(cwd) !== null;
+}
+
+function hasWorkspaceConfig(dir: string): boolean {
+  const packageJsonPath = join(dir, "package.json");
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as {
+      workspaces?: string[] | { packages?: string[] };
+    };
+
+    if (Array.isArray(parsed.workspaces)) {
+      return parsed.workspaces.length > 0;
+    }
+
+    if (
+      parsed.workspaces &&
+      typeof parsed.workspaces === "object" &&
+      Array.isArray(parsed.workspaces.packages)
+    ) {
+      return parsed.workspaces.packages.length > 0;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }

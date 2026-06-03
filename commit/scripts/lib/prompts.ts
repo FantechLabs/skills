@@ -1,5 +1,10 @@
 import * as p from "@clack/prompts";
+import { normalizeOptionalText } from "./optional.js";
 import { COMMIT_TYPES, type CommitType } from "./types.js";
+
+const SCOPE_PLACEHOLDER = "e.g. web, ui, repo";
+const DESCRIPTION_PLACEHOLDER = "imperative and concise";
+const BODY_PLACEHOLDER = "Explain why, not what. Press enter to skip.";
 
 export function intro(): void {
   p.intro("Create commit");
@@ -47,7 +52,7 @@ export async function inputScope(suggested: string | null): Promise<string | nul
   const result = await p.text({
     message: "Scope (optional)",
     defaultValue: suggested || "",
-    placeholder: suggested || "e.g. web, ui, repo",
+    placeholder: suggested || SCOPE_PLACEHOLDER,
   });
 
   if (p.isCancel(result)) {
@@ -55,18 +60,19 @@ export async function inputScope(suggested: string | null): Promise<string | nul
     process.exit(0);
   }
 
-  return result.trim() ? result.trim() : null;
+  return normalizeOptionalText(result, [SCOPE_PLACEHOLDER]);
 }
 
 export async function inputDescription(): Promise<string> {
   const result = await p.text({
     message: "Description",
-    placeholder: "imperative and concise",
+    placeholder: DESCRIPTION_PLACEHOLDER,
     validate: (value) => {
-      if (!value.trim()) {
+      const normalized = value.trim();
+      if (!normalized || normalized === DESCRIPTION_PLACEHOLDER) {
         return "Description is required";
       }
-      if (value.length > 80) {
+      if (normalized.length > 80) {
         return "Keep the description under 80 characters";
       }
       return undefined;
@@ -84,7 +90,7 @@ export async function inputDescription(): Promise<string> {
 export async function inputBody(): Promise<string | null> {
   const result = await p.text({
     message: "Body (optional)",
-    placeholder: "Explain why, not what. Press enter to skip.",
+    placeholder: BODY_PLACEHOLDER,
   });
 
   if (p.isCancel(result)) {
@@ -92,7 +98,7 @@ export async function inputBody(): Promise<string | null> {
     process.exit(0);
   }
 
-  return result.trim() ? result.trim() : null;
+  return normalizeOptionalText(result, [BODY_PLACEHOLDER]);
 }
 
 export async function confirmBreaking(): Promise<boolean> {

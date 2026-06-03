@@ -2,18 +2,30 @@
 # setup.sh — Idempotent skill installer
 #
 # Links skills from this repo to global agent directories so they're
-# available to all local AI agents (Claude Code, Cursor, Codex, OpenCode).
+# available to all local AI agents (Claude Code, Cursor, Codex, OpenCode,
+# Pi, Hermes, OpenClaw).
 #
 # Safe to run any number of times.
 #
 # Targets:
-#   ~/.claude/skills/<name>/  — Claude Code, Cursor, OpenCode
-#   ~/.agents/skills/<name>/  — Codex, OpenCode
+#   ~/.agents/skills/<name>/  — Codex/OpenCode/Pi/Hermes/OpenClaw shared skills
+#   ~/.claude/skills/<name>/  — Claude Code
+#   ~/.cursor/skills/<name>/  — Cursor
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGETS=("$HOME/.claude/skills" "$HOME/.agents/skills")
+TARGETS=()
+
+[[ -d "$HOME/.agents" ]] && TARGETS+=("$HOME/.agents/skills")
+[[ -d "$HOME/.claude" ]] && TARGETS+=("$HOME/.claude/skills")
+[[ -d "$HOME/.cursor" ]] && TARGETS+=("$HOME/.cursor/skills")
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  echo "No supported agent directories detected (expected one of ~/.agents, ~/.claude, ~/.cursor)."
+  exit 0
+fi
+
 changed=0
 
 # --- Link skills ---

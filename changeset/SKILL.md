@@ -1,6 +1,7 @@
 ---
 name: changeset
 description: Generate changesets from commits for monorepo versioning. Use after committing changes, when preparing a PR, or when asked about changesets/versioning. Analyzes commits, confirms bump types, and generates .changeset/*.md files.
+default_script: create
 ---
 
 # Changeset

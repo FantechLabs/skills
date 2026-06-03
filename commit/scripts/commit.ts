@@ -2,11 +2,14 @@
 
 import { parseArgs } from "node:util";
 
+import { wrapCommitBody } from "./lib/body.js";
 import { extractIssueKey, getCurrentBranch, inferScopeFromFiles } from "./lib/detect.js";
 import { createCommit, getFileStatus, getGitRoot } from "./lib/git.js";
 import { isInteractive } from "./lib/runtime.js";
 import * as prompts from "./lib/prompts.js";
 import { COMMIT_TYPES, type CommitData, type CommitType } from "./lib/types.js";
+
+const COMMIT_BODY_MAX_LINE_LENGTH = 100;
 
 const { values: args } = parseArgs({
   options: {
@@ -106,7 +109,8 @@ async function runInteractive(cwd: string): Promise<void> {
   const type = await prompts.selectType();
   const scope = await prompts.inputScope(suggestedScope);
   const description = await prompts.inputDescription();
-  const body = await prompts.inputBody();
+  const bodyInput = await prompts.inputBody();
+  const body = bodyInput ? wrapCommitBody(bodyInput, COMMIT_BODY_MAX_LINE_LENGTH) : null;
   const breaking = await prompts.confirmBreaking();
 
   const data: CommitData = {

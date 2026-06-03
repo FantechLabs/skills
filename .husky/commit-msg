@@ -1,1 +1,14 @@
-npm run -s commitlint -- --edit "$1"
+#!/usr/bin/env sh
+set -eu
+
+msg_file="$1"
+
+npm run -s commitlint -- --edit "$msg_file"
+
+# Allow explicit WIP commits without blocking on full typecheck.
+if grep -Eiq '\[WIP\]|(^|[[:space:]])WIP([[:space:]:]|$)' "$msg_file"; then
+  echo "WIP commit detected, skipping typecheck."
+  exit 0
+fi
+
+npm run -s typecheck

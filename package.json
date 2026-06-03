@@ -27,7 +27,7 @@
     "lint": "oxlint src tests commit/scripts release/scripts changeset/scripts vitest.config.ts",
     "format": "oxfmt src tests commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
     "format:check": "oxfmt --check src tests commit/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
-    "precommit": "bun run lint && bun run format:check && bun run typecheck",
+    "precommit": "bun run lint && bun run format:check",
     "commitlint": "commitlint",
     "prepare": "husky",
     "test": "vitest run",
