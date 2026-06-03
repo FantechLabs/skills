@@ -11,6 +11,7 @@
     "src/",
     "commit/",
     "changeset/",
+    "handoff/",
     "pr/",
     "release/",
     "review/",
