@@ -29,11 +29,11 @@ npx @fantech/skills run commit --help
 | Ruler | `--ruler` or `.ruler/ruler.toml` -> `.ruler/skills` | — | — | 🏠 local-only |
 | Codex | `.codex` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
 | OpenCode | `.opencode` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
-| Pi | `.pi` -> `.agents/skills` | `~/.pi` -> `~/.pi/agent/skills` | 🔗 target | ✅ |
+| Pi | `.pi` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
 | Claude Code | `.claude` -> `.claude/skills` | `~/.claude` -> `~/.claude/skills` | 🔗 target | ✅ |
 | Cursor | `.cursor` -> `.cursor/skills` | `~/.cursor` -> `~/.cursor/skills` | 🔗 target | ✅ |
-| Hermes | `.agents/skills` via `skills.external_dirs` | `~/.hermes` -> `~/.hermes/skills` | 🔗 target | ✅ |
-| OpenClaw | `openclaw.json` -> `skills` | `~/.openclaw` -> `~/.openclaw/skills` | 🔗 target | ✅ |
+| Hermes | `.hermes` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
+| OpenClaw | `openclaw.json` -> `.agents/skills` | `~/.agents` -> `~/.agents/skills` | 🟢 source | ✅ |
 
 Legend:
 - `🟢 source`: symlink source directory

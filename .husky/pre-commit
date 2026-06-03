@@ -3,6 +3,7 @@ set -eu
 
 stash_name="pre-commit-keep-index-$(date +%s)"
 stash_created=0
+cleanup_run=0
 
 # Pre-commit checks should validate what is staged, not in-progress local WIP.
 if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
@@ -11,12 +12,19 @@ if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; t
 fi
 
 cleanup() {
+  trap - EXIT INT TERM
+  if [ "$cleanup_run" -eq 1 ]; then
+    return
+  fi
+  cleanup_run=1
+
   if [ "$stash_created" -eq 1 ]; then
     if ! git stash pop --index >/dev/null; then
       echo "Failed to restore unstaged changes from stash."
       echo "Run 'git stash list' and restore the latest pre-commit stash manually."
       exit 1
     fi
+    stash_created=0
   fi
 }
 

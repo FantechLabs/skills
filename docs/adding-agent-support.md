@@ -30,6 +30,7 @@ Pick one model based on official docs:
 
 1. Shared model
 - Agent can consume `.agents/skills` locally/globally.
+- Prefer this model for agents that implement the AGENTS.md skills convention.
 
 2. Dedicated model
 - Agent requires dedicated directories such as `.<agent>/skills` and `~/.<agent>/skills`.
@@ -74,9 +75,7 @@ Keep entries concise and consistent with code behavior.
 Run:
 
 ```bash
-bun run lint
-bun run typecheck
-bun run test
+bun run ci:test
 ```
 
 ## 8. Report With Evidence

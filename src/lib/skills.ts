@@ -68,7 +68,6 @@ export function findInstalledSkills(cwd: string): Map<string, string[]> {
     join(cwd, ".cursor", "skills"),
     join(cwd, ".codex", "skills"),
     join(cwd, ".opencode", "skills"),
-    join(cwd, ".pi", "skills"),
   ];
 
   for (const baseDir of candidateDirs) {

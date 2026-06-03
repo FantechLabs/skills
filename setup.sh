@@ -8,12 +8,9 @@
 # Safe to run any number of times.
 #
 # Targets:
-#   ~/.agents/skills/<name>/  — Codex/OpenCode/Pi/OpenClaw shared skills
+#   ~/.agents/skills/<name>/  — Codex/OpenCode/Pi/Hermes/OpenClaw shared skills
 #   ~/.claude/skills/<name>/  — Claude Code
 #   ~/.cursor/skills/<name>/  — Cursor
-#   ~/.pi/agent/skills/<name>/ — Pi
-#   ~/.hermes/skills/<name>/  — Hermes
-#   ~/.openclaw/skills/<name>/ — OpenClaw
 
 set -euo pipefail
 
@@ -23,12 +20,9 @@ TARGETS=()
 [[ -d "$HOME/.agents" ]] && TARGETS+=("$HOME/.agents/skills")
 [[ -d "$HOME/.claude" ]] && TARGETS+=("$HOME/.claude/skills")
 [[ -d "$HOME/.cursor" ]] && TARGETS+=("$HOME/.cursor/skills")
-[[ -d "$HOME/.pi" ]] && TARGETS+=("$HOME/.pi/agent/skills")
-[[ -d "$HOME/.hermes" ]] && TARGETS+=("$HOME/.hermes/skills")
-[[ -d "$HOME/.openclaw" ]] && TARGETS+=("$HOME/.openclaw/skills")
 
 if [[ ${#TARGETS[@]} -eq 0 ]]; then
-  echo "No supported agent directories detected (expected one of ~/.agents, ~/.claude, ~/.cursor, ~/.pi, ~/.hermes, ~/.openclaw)."
+  echo "No supported agent directories detected (expected one of ~/.agents, ~/.claude, ~/.cursor)."
   exit 0
 fi
 
