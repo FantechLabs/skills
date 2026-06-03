@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 export interface SkillInfo {
   name: string;
   description: string;
+  defaultScript?: string;
   hasScripts: boolean;
   path: string;
 }
@@ -46,6 +47,8 @@ export function discoverBundledSkills(): SkillInfo[] {
     skills.push({
       name: frontmatter.name || entry.name,
       description: frontmatter.description || "",
+      defaultScript:
+        frontmatter.default_script || frontmatter["default-script"] || frontmatter.defaultScript,
       hasScripts: existsSync(join(skillDir, "scripts")),
       path: skillDir,
     });

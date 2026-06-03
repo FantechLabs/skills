@@ -39,6 +39,13 @@ describe("run command routing", () => {
     expect(result.stdout).toContain("Usage: validate-changeset");
   });
 
+  it("uses default_script for multi-entry skills", () => {
+    const result = runNodeCli(["run", "changeset", "--help"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Usage: create-changeset");
+  });
+
   it("fails for unknown changeset subcommand", () => {
     const result = runNodeCli(["run", "changeset", "unknown-subcommand"]);
 

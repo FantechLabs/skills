@@ -22,6 +22,13 @@ describe("skill entrypoint smoke tests", () => {
     expect(result.stdout).toContain("Usage: release");
   });
 
+  it("runs pr help", () => {
+    const result = runNodeCli(["run", "pr", "--help"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Usage: pr");
+  });
+
   it("supports commit dry-run JSON", () => {
     const result = runNodeCli([
       "run",
