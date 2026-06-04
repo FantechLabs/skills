@@ -7,6 +7,8 @@ describe("cli help and version", () => {
     const result = runNodeCli(["--help"]);
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("@fantechlabs/skills");
+    expect(result.stdout).not.toContain("@fantech/skills");
     expect(result.stdout).toContain("Usage:");
     expect(result.stdout).toContain("skills <command>");
   });

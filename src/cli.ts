@@ -35,7 +35,7 @@ function getVersion(): string {
 
 function showHelp(): void {
   console.log(`
-@fantech/skills v${getVersion()}
+@fantechlabs/skills v${getVersion()}
 
 Usage:
   skills <command> [options]

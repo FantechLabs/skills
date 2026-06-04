@@ -21,7 +21,7 @@ async function bootstrap() {
 
 bootstrap().catch((error) => {
   console.error(
-    "Failed to start @fantech/skills CLI:",
+    "Failed to start @fantechlabs/skills CLI:",
     error instanceof Error ? error.message : String(error),
   );
   process.exit(1);

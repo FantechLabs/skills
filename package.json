@@ -1,5 +1,5 @@
 {
-  "name": "@fantech/skills",
+  "name": "@fantechlabs/skills",
   "version": "0.1.0",
   "description": "Shared agent skills and CLI for Fantech engineering practices",
   "license": "MIT",
