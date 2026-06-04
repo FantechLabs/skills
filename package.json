@@ -4,7 +4,7 @@
   "description": "Shared agent skills and CLI for Fantech engineering practices",
   "license": "MIT",
   "bin": {
-    "skills": "./bin/skills.mjs"
+    "skills": "bin/skills.mjs"
   },
   "files": [
     "bin/",
