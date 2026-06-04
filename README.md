@@ -1,25 +1,25 @@
-# @fantech/skills
+# @fantechlabs/skills
 
 Shared agent skills and a CLI for installing and running them.
 
-## Project CLI (`@fantech/skills`)
+## Project CLI (`@fantechlabs/skills`)
 
 Run directly without a global install:
 
 ```bash
-npx @fantech/skills --help
-bunx @fantech/skills --help
+npx @fantechlabs/skills --help
+bunx @fantechlabs/skills --help
 ```
 
 Common usage:
 
 ```bash
-npx @fantech/skills list
-npx @fantech/skills install commit --yes
-npx @fantech/skills install commit --yes --agent claude
-npx @fantech/skills install commit --yes --ruler
-npx @fantech/skills run changeset validate
-npx @fantech/skills run commit --help
+npx @fantechlabs/skills list
+npx @fantechlabs/skills install commit --yes
+npx @fantechlabs/skills install commit --yes --agent claude
+npx @fantechlabs/skills install commit --yes --ruler
+npx @fantechlabs/skills run changeset validate
+npx @fantechlabs/skills run commit --help
 ```
 
 ## Supported Agents
