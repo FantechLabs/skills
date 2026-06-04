@@ -1,15 +1,17 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document for another agent to pick up.
+description: Use when creating a compact handoff document so another agent can resume the current conversation or project work.
 argument-hint: "What will the next session be used for?"
 ---
 
-Write a handoff document summarizing the current conversation so a fresh agent can continue the work. Save to the ~/.agents/handoff/<project-name> directory with a clear file name starting with a date and time - not the current workspace.
+Write a compact handoff for the next agent.
 
-Include a "suggested skills" section in the document, which suggests skills that the agent should invoke.
+Save it under `~/.agents/handoff/<project-name>/` as `YYYY-MM-DD-HHMM-<project>-<focus-slug>.md`. Build `<focus-slug>` from the user's requested next focus, issue/PR key, branch name, or current objective. Do not use timestamp-only or generic names.
 
-Do not duplicate content already captured in other artifacts (PRDs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead.
+Include only:
+- current objective and status
+- repo, branch, and relevant paths/URLs
+- blockers, decisions, and next steps
+- suggested skills
 
-Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
-
-If the user passed arguments, treat them as a description of what the next session will focus on and tailor the doc accordingly.
+Reference existing artifacts instead of duplicating them. Redact secrets and sensitive personal data.
