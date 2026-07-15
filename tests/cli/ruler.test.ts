@@ -12,6 +12,7 @@ vi.mock("@clack/prompts", () => ({
 }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
