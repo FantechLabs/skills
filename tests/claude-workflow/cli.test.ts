@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildShellCommand, shellQuote } from "../../claude-workflow/scripts/workflow";
+import {
+  buildShellCommand,
+  resultFileName,
+  shellQuote,
+} from "../../claude-workflow/scripts/workflow";
 
 describe("shellQuote", () => {
   it("single-quotes and escapes embedded quotes", () => {
@@ -24,5 +28,16 @@ describe("buildShellCommand", () => {
   it("quotes args containing parens (Bash tool patterns)", () => {
     const cmd = buildShellCommand(["--allowedTools", "Bash(git log:*)"], "/runs/r1", "/proj");
     expect(cmd).toContain("'Bash(git log:*)'");
+  });
+});
+
+describe("resultFileName", () => {
+  it("uses result.md for the original run", () => {
+    expect(resultFileName(0)).toBe("result.md");
+  });
+
+  it("uses the generation suffix for resumed runs", () => {
+    expect(resultFileName(1)).toBe("result-1.md");
+    expect(resultFileName(3)).toBe("result-3.md");
   });
 });

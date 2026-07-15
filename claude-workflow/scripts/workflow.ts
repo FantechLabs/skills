@@ -107,16 +107,21 @@ function cmdStart(argv: string[]): void {
   console.log(`started pid ${meta.pid} — poll with: workflow.ts status ${dir}`);
 }
 
+export function resultFileName(resumeCount: number): string {
+  return resumeCount > 0 ? `result-${resumeCount}.md` : "result.md";
+}
+
 function launchAndWait(shellCmd: string, dir: string, meta: RunMeta): void {
   const res = spawnSync("/bin/sh", ["-c", shellCmd], { stdio: ["ignore", "ignore", "inherit"] });
   meta.pid = null;
   writeMeta(dir, meta);
   const finalized = finalizeIfNeeded(dir);
+  const result = readFileSync(join(dir, resultFileName(finalized.resumeCount)), "utf-8");
   if (res.status !== 0 || finalized.state === "failed") {
-    console.error(readFileSync(join(dir, "result.md"), "utf-8"));
+    console.error(result);
     process.exit(1);
   }
-  console.log(readFileSync(join(dir, "result.md"), "utf-8"));
+  console.log(result);
 }
 
 function cmdStatus(argv: string[]): void {
@@ -128,8 +133,7 @@ function cmdResult(argv: string[]): void {
   const dir = resolveRun(argv[0] ?? fail("usage: result <run>"));
   const meta = finalizeIfNeeded(dir);
   if (meta.state === "running") fail("run is still in progress");
-  const resultFile = meta.resumeCount > 0 ? `result-${meta.resumeCount}.md` : "result.md";
-  console.log(readFileSync(join(dir, resultFile), "utf-8"));
+  console.log(readFileSync(join(dir, resultFileName(meta.resumeCount)), "utf-8"));
   if (meta.state === "failed") process.exit(1);
 }
 
@@ -178,7 +182,14 @@ function cmdResume(argv: string[]): void {
   meta.resumeCount = n;
   meta.state = "running";
   ensureClaudeOnPath();
-  meta.pid = launch(shellCmd, values.wait ?? false);
+
+  if (values.wait) {
+    writeMeta(dir, meta);
+    console.log(`resume ${n}: ${dir} (foreground)`);
+    launchAndWait(shellCmd, dir, meta);
+    return;
+  }
+  meta.pid = launch(shellCmd, false);
   writeMeta(dir, meta);
   console.log(`resume ${n} started for ${dir}`);
 }
