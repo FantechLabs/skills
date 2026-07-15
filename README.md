@@ -111,7 +111,7 @@ Use the same pattern for any other skill folder in this repo:
 
 ## CLI Commands
 
-- `skills list`: list bundled skills, install status, and whether each skill is runnable.
+- `skills list`: report each bundled skill's local/global scope, harness, location, and runnable status.
 - `skills install [skills...]`: install selected skills, or all skills when none are provided in non-interactive mode.
 - `skills run <skill> [subcommand] [args...]`: run a skill script.
 - `skills <skill-name> [subcommand] [args...]`: shortcut for `skills run <skill-name> ...`.
