@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
+    "tar": "^7.5.20",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
