@@ -186,6 +186,11 @@ describe("applyRulerAfterChanges", () => {
       },
     );
 
+    expect(p.confirm).toHaveBeenCalledOnce();
+    expect(p.confirm).toHaveBeenCalledWith({
+      message: "Run `ruler apply` now to propagate skills to configured agents?",
+      initialValue: true,
+    });
     expect(spawnSyncImpl).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       "\nRun `ruler apply` to propagate .ruler skills to configured agents.",
