@@ -189,7 +189,13 @@ export async function runUpdateCommand(
     });
     console.log(`\nUpdated ${plans.length} skill(s).`);
   } finally {
-    latestPackage.cleanup();
+    try {
+      latestPackage.cleanup();
+    } catch (error) {
+      console.warn(
+        `Failed to clean up latest npm skill package at ${latestPackage.packageRoot}: ${formatError(error)}. Check for retained package files and remove them manually.`,
+      );
+    }
   }
 }
 

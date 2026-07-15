@@ -111,6 +111,38 @@ describe("install command", () => {
     });
   });
 
+  it("lets an explicit agent target override automatic Ruler project detection", async () => {
+    const cwd = makeTempProject();
+    mkdirSync(join(cwd, ".ruler"), { recursive: true });
+    writeFileSync(join(cwd, ".ruler", "ruler.toml"), "[agents]\n", "utf-8");
+
+    await expect(
+      resolveInstallTargets({
+        cwd,
+        flags: { agent: ["claude"], global: false, ruler: false, yes: true },
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(cwd, ".claude", "skills")],
+      useSymlinkMode: false,
+    });
+  });
+
+  it("rejects combining explicit Ruler and agent targets", () => {
+    const cwd = makeTempProject();
+    const result = runNodeCli(
+      ["install", "commit", "--yes", "--skip-deps", "--ruler", "--agent", "claude"],
+      { cwd },
+    );
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).toContain(
+      "`--ruler` and `--agent` cannot be used together.",
+    );
+    expect(existsSync(join(cwd, ".ruler", "skills", "commit"))).toBe(false);
+    expect(existsSync(join(cwd, ".claude", "skills", "commit"))).toBe(false);
+  });
+
   it("resolves all detected logical global roots for management without install mode", async () => {
     const cwd = makeTempProject();
     const home = makeTempProject();

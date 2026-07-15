@@ -39,6 +39,11 @@ export async function resolveInstallTargets(options: {
     process.exit(1);
   }
 
+  if (options.flags.ruler && options.flags.agent && options.flags.agent.length > 0) {
+    console.error("`--ruler` and `--agent` cannot be used together.");
+    process.exit(1);
+  }
+
   if (options.flags.symlink && !options.flags.global) {
     console.error("`--symlink` requires `--global`.");
     process.exit(1);
@@ -48,10 +53,6 @@ export async function resolveInstallTargets(options: {
     return resolveGlobalInstallTargets(options.flags, options.interactive);
   }
 
-  if (options.flags.ruler || isRulerProject(options.cwd)) {
-    return { installPaths: [getRulerSkillsDir(options.cwd)], useSymlinkMode: false };
-  }
-
   if (options.flags.agent && options.flags.agent.length > 0) {
     return {
       installPaths: [
@@ -59,6 +60,10 @@ export async function resolveInstallTargets(options: {
       ],
       useSymlinkMode: false,
     };
+  }
+
+  if (options.flags.ruler || isRulerProject(options.cwd)) {
+    return { installPaths: [getRulerSkillsDir(options.cwd)], useSymlinkMode: false };
   }
 
   const detectedAgents = detectAgents(options.cwd);

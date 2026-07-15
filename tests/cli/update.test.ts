@@ -362,6 +362,62 @@ describe("runUpdateCommand", () => {
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 
+  it("warns without failing when latest package cleanup fails after success", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    writeSkill(join(installRoot, "commit"), "commit", "2.0.0");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    fixture.cleanup.mockImplementation(() => {
+      throw new Error("injected latest-package cleanup failure");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await expect(
+      runUpdateCommand(
+        ["--yes", "--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+        }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(fixture.root));
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("injected latest-package cleanup failure"),
+    );
+  });
+
+  it("preserves a primary command error when latest package cleanup also fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    writeSkill(join(installRoot, "commit"), "commit", "1.0.0");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    fixture.cleanup.mockImplementation(() => {
+      throw new Error("injected latest-package cleanup failure");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await expect(
+      runUpdateCommand(
+        ["--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+        }),
+      ),
+    ).rejects.toThrow("Non-interactive updates require --yes");
+
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(fixture.root));
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("injected latest-package cleanup failure"),
+    );
+  });
+
   it("reports unnamed installed skills absent from latest npm as not updateable", async () => {
     const cwd = makeTempProject();
     const installRoot = join(cwd, ".agents", "skills");
