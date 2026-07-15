@@ -105,6 +105,16 @@ export function detectAgents(cwd: string): AgentInfo[] {
   return KNOWN_AGENTS.filter((agent) => existsSync(join(cwd, agent.configDir)));
 }
 
+export function getSharedAgentNames(cwd?: string): string[] {
+  const compatibleAgents = KNOWN_AGENTS.filter((agent) => agent.supportsAgentsDir);
+  if (!cwd) {
+    return compatibleAgents.map((agent) => agent.name);
+  }
+
+  const detected = detectAgents(cwd).filter((agent) => agent.supportsAgentsDir);
+  return (detected.length > 0 ? detected : compatibleAgents).map((agent) => agent.name);
+}
+
 export function getInstallPaths(cwd: string, agents: AgentInfo[]): string[] {
   const paths = new Set<string>();
 

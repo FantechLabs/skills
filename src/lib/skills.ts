@@ -1,6 +1,9 @@
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { getSharedAgentNames } from "./agents.js";
 
 export interface SkillInfo {
   name: string;
@@ -8,6 +11,15 @@ export interface SkillInfo {
   defaultScript?: string;
   hasScripts: boolean;
   path: string;
+}
+
+export type SkillInstallScope = "local" | "global";
+
+export interface SkillInstallLocation {
+  scope: SkillInstallScope;
+  harnesses: string[];
+  baseDir: string;
+  skillPath: string;
 }
 
 export interface SkillDirectoryDiff {
@@ -57,20 +69,41 @@ export function discoverBundledSkills(): SkillInfo[] {
   return skills.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function findInstalledSkills(cwd: string): Map<string, string[]> {
-  const installed = new Map<string, string[]>();
-
-  const candidateDirs = [
-    join(cwd, "skills"),
-    join(cwd, ".ruler", "skills"),
-    join(cwd, ".agents", "skills"),
-    join(cwd, ".claude", "skills"),
-    join(cwd, ".cursor", "skills"),
-    join(cwd, ".codex", "skills"),
-    join(cwd, ".opencode", "skills"),
+export function findInstalledSkills(
+  cwd: string,
+  homeDir: string = homedir(),
+): Map<string, SkillInstallLocation[]> {
+  const installed = new Map<string, SkillInstallLocation[]>();
+  const localRoots = [
+    { baseDir: join(cwd, "skills"), harnesses: ["Generic"], homeLevel: false },
+    { baseDir: join(cwd, ".ruler", "skills"), harnesses: ["Ruler"], homeLevel: true },
+    {
+      baseDir: join(cwd, ".agents", "skills"),
+      harnesses: getSharedAgentNames(cwd),
+      homeLevel: true,
+    },
+    { baseDir: join(cwd, ".claude", "skills"), harnesses: ["Claude Code"], homeLevel: true },
+    { baseDir: join(cwd, ".cursor", "skills"), harnesses: ["Cursor"], homeLevel: true },
+    { baseDir: join(cwd, ".codex", "skills"), harnesses: ["Codex"], homeLevel: true },
+    { baseDir: join(cwd, ".opencode", "skills"), harnesses: ["OpenCode"], homeLevel: true },
+  ];
+  const globalRoots = [
+    { baseDir: join(homeDir, ".agents", "skills"), harnesses: getSharedAgentNames() },
+    { baseDir: join(homeDir, ".claude", "skills"), harnesses: ["Claude Code"] },
+    { baseDir: join(homeDir, ".cursor", "skills"), harnesses: ["Cursor"] },
+    { baseDir: join(homeDir, ".codex", "skills"), harnesses: ["Codex"] },
+    { baseDir: join(homeDir, ".opencode", "skills"), harnesses: ["OpenCode"] },
+    { baseDir: join(homeDir, ".ruler", "skills"), harnesses: ["Ruler"] },
+  ];
+  const isHomeDirectory = resolve(cwd) === resolve(homeDir);
+  const searchRoots = [
+    ...localRoots
+      .filter((root) => !isHomeDirectory || !root.homeLevel)
+      .map((root) => ({ ...root, scope: "local" as const })),
+    ...globalRoots.map((root) => ({ ...root, scope: "global" as const })),
   ];
 
-  for (const baseDir of candidateDirs) {
+  for (const { baseDir, harnesses, scope } of searchRoots) {
     if (!existsSync(baseDir)) {
       continue;
     }
@@ -87,7 +120,12 @@ export function findInstalledSkills(cwd: string): Map<string, string[]> {
       }
 
       const locations = installed.get(skillName) || [];
-      locations.push(baseDir);
+      locations.push({
+        scope,
+        harnesses,
+        baseDir,
+        skillPath: join(baseDir, skillName),
+      });
       installed.set(skillName, locations);
     }
   }
