@@ -11,6 +11,7 @@ import { composePrompt, type Mode } from "./lib/prompt.js";
 import {
   computeRunDir,
   createRun,
+  finalizeExited,
   finalizeIfNeeded,
   finalizeStopped,
   isPidAlive,
@@ -145,6 +146,13 @@ export function resultFileName(resumeCount: number): string {
 // during the run must see a live pid, not the spawnSync-era gap where no pid was ever
 // recorded. detached: true keeps the process group killable the same way background
 // runs are (see cmdStop's process.kill(-pid, …)).
+//
+// After the exit we OWN the fact that the child is gone, so finalization goes through
+// finalizeExited (unconditional, re-reads meta so a concurrent `stop`'s finalization
+// isn't clobbered) rather than finalizeIfNeeded, whose pid-liveness/starting-grace
+// hedges exist for concurrent observers only — routing through it here would leave a
+// child killed before its `echo $? > exit-code` tail (SIGKILL/OOM) stuck "running"
+// with no result file for the whole grace period.
 export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta): Promise<void> {
   const child = spawn("/bin/sh", ["-c", shellCmd], {
     detached: true,
@@ -154,13 +162,18 @@ export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta
   meta.pid = child.pid;
   writeMeta(dir, meta);
 
-  const exitCode = await new Promise<number>((resolveExit) => {
-    child.on("exit", (code) => resolveExit(code ?? 1));
-  });
+  let exitCode: number;
+  try {
+    exitCode = await new Promise<number>((resolveExit, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code) => resolveExit(code ?? 1));
+    });
+  } catch (err) {
+    finalizeExited(dir);
+    fail(`child process error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
-  meta.pid = null;
-  writeMeta(dir, meta);
-  const finalized = finalizeIfNeeded(dir);
+  const finalized = finalizeExited(dir);
   const result = readFileSync(join(dir, resultFileName(finalized.resumeCount)), "utf-8");
   if (exitCode !== 0 || finalized.state === "failed") {
     console.error(result);

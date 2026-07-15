@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createRun, readMeta } from "../../claude-workflow/scripts/lib/runs";
+import { createRun, finalizeStopped, readMeta } from "../../claude-workflow/scripts/lib/runs";
 import {
   buildShellCommand,
   launchAndWait,
@@ -87,6 +87,51 @@ describe("launchAndWait", () => {
     expect(sawLivePid).not.toBeNull();
     expect(sawLivePid).toBeGreaterThan(1);
     expect(readMeta(dir).pid).toBeNull();
+  });
+
+  it("finalizes as a clean failure when the child dies before writing the exit-code file", async () => {
+    const { dir, meta } = createRun("crash-wait-run", "explore", "/tmp", "PROMPT");
+    // `exit 0` mimics sh being SIGKILLed/OOM'd before its `echo $? > exit-code`
+    // tail: no log, no exit-code file. launchAndWait must still finalize the run
+    // as failed with a crash-message result and exit 1 — not throw ENOENT.
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await expect(launchAndWait("exit 0", dir, meta)).rejects.toThrow("process.exit:1");
+    } finally {
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+
+    expect(readMeta(dir).state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toMatch(/crashed/i);
+  });
+
+  it("does not clobber a concurrent stop's failed state after the child exits", async () => {
+    const { dir, meta } = createRun("stop-race-run", "explore", "/tmp", "PROMPT");
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const pending = expect(launchAndWait("sleep 0.3", dir, meta)).rejects.toThrow(
+        "process.exit:1",
+      );
+      // Mid-run, a `stop` from another shell finalizes the run as failed.
+      await new Promise((r) => setTimeout(r, 100));
+      finalizeStopped(dir);
+      await pending;
+    } finally {
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+
+    expect(readMeta(dir).state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toBe("Run stopped by caller.");
   });
 });
 

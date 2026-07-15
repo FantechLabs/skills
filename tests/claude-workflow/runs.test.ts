@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createRun,
+  finalizeExited,
   finalizeIfNeeded,
   finalizeStopped,
   isPidAlive,
@@ -218,6 +219,58 @@ describe("finalizeIfNeeded - starting grace period", () => {
     const finalized = finalizeIfNeeded(dir);
 
     expect(finalized.state).toBe("failed");
+  });
+});
+
+describe("finalizeExited", () => {
+  const successLog = [
+    JSON.stringify({ type: "system", subtype: "init", session_id: "sx" }),
+    JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "DONE",
+      session_id: "sx",
+    }),
+  ].join("\n");
+
+  it("force-finalizes a completed run regardless of the starting grace period", () => {
+    const { dir } = createRun("exited-ok-run", "explore", "/x", "p");
+    writeFileSync(join(dir, "log.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code"), "0\n");
+    // pid is null and startedAt is fresh — an observer's finalizeIfNeeded grace
+    // logic must not apply here: the caller KNOWS the child exited.
+    const finalized = finalizeExited(dir);
+
+    expect(finalized.state).toBe("completed");
+    expect(finalized.pid).toBeNull();
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toBe("DONE");
+  });
+
+  it("force-fails a run whose child died before writing the exit-code file", () => {
+    const { dir } = createRun("exited-crash-run", "explore", "/x", "p");
+    // No log, no exit-code (sh SIGKILLed before its `echo $? >` tail) and a fresh
+    // startedAt: finalizeIfNeeded would defer for the grace period, but the exit
+    // is a certainty — finalizeExited must fail it now and write a result file.
+    expect(finalizeIfNeeded(dir).state).toBe("running");
+
+    const finalized = finalizeExited(dir);
+
+    expect(finalized.state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toMatch(/crashed/i);
+  });
+
+  it("does not clobber a concurrent stop's finalization", () => {
+    const { dir, meta } = createRun("exited-stopped-run", "explore", "/x", "p");
+    meta.pid = 12345;
+    writeMeta(dir, meta);
+    finalizeStopped(dir); // what `stop` does right after SIGTERM
+
+    const finalized = finalizeExited(dir);
+
+    expect(finalized.state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toBe("Run stopped by caller.");
+    expect(readMeta(dir).state).toBe("failed");
   });
 });
 

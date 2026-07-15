@@ -155,14 +155,13 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-// A null pid means either "not spawned yet" (createRun -> writeMeta -> spawn window,
-// or launchAndWait's pre-spawn instant) or "spawned and already exited" (launchAndWait
-// clears pid back to null right after the child exits, then finalizes immediately in
-// the same tick). The exit-code file — the very last thing the shell command writes —
-// is the tell: if it's there, the child ran to completion and this is not a "starting"
-// run no matter how fresh startedAt is. Only fall back to the time-based grace period
-// when there's no such evidence yet, to avoid finalizing a run that just hasn't been
-// given a pid yet as "crashed".
+// For a concurrent observer, a null pid usually means "not spawned yet" (the
+// createRun -> writeMeta -> spawn window, or launchAndWait's pre-spawn instant).
+// The exit-code file — the very last thing the shell command writes — is the one
+// definitive counter-signal: if it's there, the child ran to completion and this is
+// not a "starting" run no matter how fresh startedAt is. Only fall back to the
+// time-based grace period when there's no such evidence yet, to avoid finalizing a
+// run that just hasn't been given a pid yet as "crashed".
 function isStillStarting(dir: string, meta: RunMeta): boolean {
   const suffix = meta.resumeCount > 0 ? `-${meta.resumeCount}` : "";
   if (existsSync(join(dir, `exit-code${suffix}`))) return false;
@@ -208,12 +207,10 @@ function finalizeFromLog(
   return meta;
 }
 
-export function finalizeIfNeeded(dir: string): RunMeta {
-  const meta = readMeta(dir);
-  if (meta.state !== "running") return meta;
-  if (meta.pid !== null && isPidAlive(meta.pid)) return meta;
-  if (meta.pid === null && isStillStarting(dir, meta)) return meta;
-
+// Finalizes from the evidence on disk: completed only when the log has a real,
+// non-error result AND the shell recorded exit code 0 (Fix C), failed otherwise —
+// including a missing exit-code file (child died before its `echo $? >` tail ran).
+function finalizeFromEvidence(dir: string, meta: RunMeta): RunMeta {
   return finalizeFromLog(
     dir,
     meta,
@@ -221,6 +218,29 @@ export function finalizeIfNeeded(dir: string): RunMeta {
     (result, exitCode) =>
       result.found && !result.isError && exitCode === 0 ? "completed" : "failed",
   );
+}
+
+export function finalizeIfNeeded(dir: string): RunMeta {
+  const meta = readMeta(dir);
+  if (meta.state !== "running") return meta;
+  if (meta.pid !== null && isPidAlive(meta.pid)) return meta;
+  if (meta.pid === null && isStillStarting(dir, meta)) return meta;
+
+  return finalizeFromEvidence(dir, meta);
+}
+
+// Force-finalizes a run whose child the caller has definitively observed exiting
+// (launchAndWait's post-exit path). Unlike finalizeIfNeeded — which serves concurrent
+// OBSERVERS and must hedge with pid-liveness and starting-grace checks — the caller
+// here owns the exit fact, so no gating applies: finalize now, from whatever evidence
+// is on disk, and clear the pid in the same meta write. Meta is re-read from disk
+// first so a concurrent `stop` that already finalized (state !== "running") is
+// respected rather than clobbered by the caller's stale in-memory copy.
+export function finalizeExited(dir: string): RunMeta {
+  const meta = readMeta(dir);
+  if (meta.state !== "running") return meta;
+  meta.pid = null;
+  return finalizeFromEvidence(dir, meta);
 }
 
 // Finalizes a run that the caller explicitly stopped: unlike finalizeIfNeeded, this
