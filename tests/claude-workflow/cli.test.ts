@@ -26,7 +26,11 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WORKFLOW_TS = resolve(__dirname, "../../claude-workflow/scripts/workflow.ts");
 const SIGINT_HARNESS_TS = resolve(__dirname, "fixtures/sigint-harness.ts");
-const FAKE_CLAUDE_DIR = dirname(resolve(__dirname, "fixtures/fake-claude"));
+// The stub MUST be named `claude` — PATH lookup resolves the command name, so a
+// file named anything else is invisible to `ensureClaudeOnPath()` and the spawned
+// shell command. (On dev machines a real `claude` further down PATH would mask a
+// misnamed stub; CI has none, so the lookup fails outright.)
+const FAKE_CLAUDE_DIR = dirname(resolve(__dirname, "fixtures/claude"));
 
 describe("shellQuote", () => {
   it("single-quotes and escapes embedded quotes", () => {
@@ -410,7 +414,7 @@ describe("cmdResume integration (real CLI subprocess, stubbed `claude` binary)",
     env = {
       ...process.env,
       CLAUDE_WORKFLOW_HOME: base,
-      // fixtures/fake-claude answers `--version` (satisfies ensureClaudeOnPath) and
+      // fixtures/claude (stub) answers `--version` (satisfies ensureClaudeOnPath) and
       // exits immediately for anything else, so the (non---wait) background launch
       // this test triggers never makes a real network call or spends real budget —
       // it just needs to exist long enough for cmdResume's own bookkeeping
