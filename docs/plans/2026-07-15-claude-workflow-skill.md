@@ -22,7 +22,7 @@
 
 ## File Structure
 
-```
+```text
 claude-workflow/
   SKILL.md                      # Task 7
   scripts/
@@ -1217,7 +1217,7 @@ verbatim after a separator, and on any conflict YOUR instructions win. Include:
   `stop` + new run, or `resume` after completion.
 - One follow-up channel: `resume` starts a new turn with prior context; it
   cannot interrupt a run in flight.
-```
+```text
 
 - [ ] **Step 2: Write `docs/claude-workflow-smoke.md`**
 
@@ -1251,7 +1251,7 @@ Checks:
 - [ ] `log.jsonl` contains a `Workflow` tool_use event (orchestration actually ran).
 - [ ] No file modifications in the repo (`git status` clean) — explore stayed read-only.
 - [ ] `session-id` exists; `resume "$RUN" --prompt <follow-up.md>` works.
-```
+```text
 
 - [ ] **Step 3: Commit**
 
@@ -1281,4 +1281,4 @@ bun claude-workflow/scripts/workflow.ts start --mode build --prompt /tmp/cw-t.md
 Expected: explore command contains the full allowlist + disallow list; build command contains `--dangerously-skip-permissions` and no tool lists. Clean up the two created run dirs.
 
 - [ ] **Step 3: Report** — summarize state; the real smoke run (`docs/claude-workflow-smoke.md`) is a user-triggered follow-up since it costs tokens.
-```
+```text

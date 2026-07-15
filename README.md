@@ -7,6 +7,7 @@ Shared agent skills and a CLI for installing and running them.
 | Skill | Type | Use it for | Common commands |
 |---|---|---|---|
 | `changeset` | Runnable | Generate and validate Changesets files from conventional commits. Also helps with prerelease mode. | `skills changeset`, `skills changeset validate`, `skills changeset prerelease` |
+| `claude-workflow` | Runnable | Launch a Claude Code dynamic multi-agent workflow (explore/build) headlessly via `claude -p` — usable from any harness, not just Claude Code. | `skills claude-workflow start --mode explore --prompt task.md`, `skills claude-workflow status <run>`, `skills claude-workflow result <run>` |
 | `commit` | Runnable | Create conventional commits with the right type, emoji, scope, body, and safety checks. | `skills commit`, `skills commit --help` |
 | `handoff` | Docs only | Write compact handoff notes so another agent can resume the same work later. | Install and invoke as an agent skill. |
 | `pick-up` | Docs only | Resume from a handoff document without trusting stale context. | Install and invoke as an agent skill. |
@@ -14,7 +15,7 @@ Shared agent skills and a CLI for installing and running them.
 | `release` | Runnable | Consume Changesets, version packages, create tags, and create GitHub releases. | `skills release --dry-run`, `skills release --ci` |
 | `review` | Docs only | Fetch, triage, and address PR/MR review feedback. | Install and invoke as an agent skill. |
 
-Runnable skills include scripts under `<skill>/scripts/` and can be executed through this package's `skills` CLI. Docs-only skills are agent instructions without a CLI script.
+Runnable skills include scripts under `<skill>/scripts/` and can be executed through this package's `skills` CLI. Docs-only skills are agent instructions without a CLI script. `claude-workflow` additionally requires the Claude Code CLI (`claude`) on PATH, authenticated.
 
 ## Requirements
 

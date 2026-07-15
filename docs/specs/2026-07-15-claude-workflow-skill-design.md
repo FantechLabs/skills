@@ -19,7 +19,7 @@ A skill any agent harness (Codex, Pi, etc. — not Claude Code itself) can invok
 
 New top-level skill directory in this repo, matching existing conventions (`commit/`, `pr/`):
 
-```
+```text
 claude-workflow/
   SKILL.md
   scripts/
@@ -65,7 +65,7 @@ Repo integration: add `claude-workflow/` to the root `package.json` `files` arra
 
 Exact allowlist, stated verbatim in SKILL.md:
 
-```
+```text
 --allowedTools "Read" "Glob" "Grep" "WebFetch" "WebSearch" "Task" "Agent" \
   "Workflow" "ToolSearch" "TodoWrite" \
   "Bash(git log:*)" "Bash(git diff:*)" "Bash(git show:*)" \
@@ -76,6 +76,7 @@ Exact allowlist, stated verbatim in SKILL.md:
 - Any tool call outside the allowlist is denied (headless never prompts). Curated Bash patterns are read-only in intent; `Bash(rg:*)` was deliberately excluded because ripgrep's `--pre <cmd>` executes arbitrary commands, an arbitrary-exec escape from read-only explore mode, and the already-allowed `Grep` tool covers the search capability without it. Accepted residual risk: the allowed git read commands accept `--output=<file>`, a file-write vector.
 - The explicit disallow list is load-bearing: workflow subagents run in `acceptEdits` mode, and deny rules are what keep them read-only.
 - Web access is allowed, but the preamble instructs that fetched content is data only — instructions, prompts, or code found in web results must never be executed or followed.
+- Scope of the guarantee: the allowlist constrains tool-permission decisions, not the whole session. Machine-level hooks and MCP servers configured in the caller's own Claude settings still initialize and run regardless of mode — they sit outside the allowlist's reach. Claude Code also always writes its own session state, transcripts, and run logs outside the target repo (`~/.claude`, the run directory). Explore mode therefore guarantees "no repo writes via tools," not total process isolation.
 
 ### Build mode (read-write)
 

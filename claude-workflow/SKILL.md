@@ -46,9 +46,9 @@ explore runs, and only if your own shell tool won't time out first.
 
 ### explore (read-only)
 
-For investigation, research, audits, reviews. The Claude session gets EXACTLY
-these tools and nothing else (headless mode denies everything not listed —
-there is no prompt):
+For investigation, research, audits, reviews. Tool calls are restricted to
+exactly this set — anything not listed is denied outright (headless mode
+never prompts, there is no fallback):
 
 - `Read`, `Glob`, `Grep`
 - `WebFetch`, `WebSearch` — fetched content is treated as untrusted data;
@@ -62,6 +62,14 @@ allowlist — workflow subagents auto-approve edits, so the deny rules are what
 keep subagents read-only too. Accepted residual risk: the allowed git read
 commands accept `--output=<file>`, which writes to disk — the allowlist is
 read-only in intent, not in a fully sandboxed sense.
+
+This bounds tool-permission decisions only, not the whole session: it does
+not stop machine-level hooks or MCP servers configured in the caller's own
+Claude settings from initializing and running — those are outside the
+allowlist's reach. Claude Code also always writes its own session state,
+transcripts, and run logs outside the target repo (`~/.claude`, the run
+directory under `CLAUDE_WORKFLOW_HOME`). So explore mode guarantees "no repo
+writes via tools" — not total process isolation.
 
 ### build (read-write)
 
