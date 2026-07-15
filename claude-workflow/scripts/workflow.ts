@@ -121,7 +121,12 @@ function checkHelp(command: Subcommand, argv: string[]): void {
 function isParseArgsError(err: unknown): err is NodeJS.ErrnoException {
   if (!(err instanceof Error) || !("code" in err)) return false;
   const code = (err as NodeJS.ErrnoException).code;
-  return code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" || code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE";
+  // Matches every node:util parseArgs failure mode (unknown option, invalid option
+  // value, unexpected positional, etc.) by prefix rather than enumerating each
+  // ERR_PARSE_ARGS_* code — an unhandled one (e.g. ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL
+  // from a stray positional like `start task.md --mode explore`) used to fall through
+  // to the `throw err` below and print a raw stack trace instead of `error: ...` + usage.
+  return typeof code === "string" && code.startsWith("ERR_PARSE_ARGS_");
 }
 
 // Wraps a subcommand's parseArgs call so a bad flag (unknown option, invalid
@@ -176,7 +181,10 @@ function launch(shellCmd: string, wait: boolean): number {
 
 function parseMaxBudgetUsd(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
-  const parsed = Number.parseFloat(value);
+  // Number(...), not Number.parseFloat: parseFloat parses a leading numeric prefix
+  // and silently ignores trailing garbage ("5abc" -> 5), which would accept a typo'd
+  // budget flag. Number("5abc") is NaN, so the finite/positive check below catches it.
+  const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return fail(`--max-budget-usd must be a positive number, got "${value}"`);
   }
@@ -245,6 +253,47 @@ export function resultFileName(resumeCount: number): string {
   return resumeCount > 0 ? `result-${resumeCount}.md` : "result.md";
 }
 
+// Sends `signal` to the child's whole process group first (matches how the child was
+// spawned: detached: true so `-pid` addresses the group, mirroring cmdStop's
+// process.kill(-meta.pid, …)); falls back to signaling just the pid if the group form
+// fails (e.g. the child already became its own reaper), and swallows the case where
+// the process is already gone (ESRCH) — there is nothing left to signal.
+function killProcessGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    try {
+      process.kill(pid, signal);
+    } catch {
+      // Already dead — nothing to do.
+    }
+  }
+}
+
+// Handles ^C/SIGTERM delivered to the foreground `--wait` wrapper while its detached
+// child is still running. Before this, SIGINT only killed the wrapper: the detached
+// child (and the `claude` session underneath it) kept running — and spending —
+// invisibly, an orphaning regression from making the child detached at all (needed so
+// a concurrent `stop` from another shell can reach it via process group). This makes
+// ^C behave like the pre-detached foreground run again: terminate the underlying
+// session, finalize the run through the same stop path `workflow.ts stop` uses (so a
+// subsequent `status`/`result` reads "failed" instead of hanging in "running"
+// forever), print a one-line notice, and exit with the conventional 128+signal code.
+// Extracted as its own function so tests can drive it directly instead of delivering
+// a real OS signal to the process running the test suite.
+export function handleForegroundSignal(
+  pid: number,
+  dir: string,
+  signal: "SIGINT" | "SIGTERM",
+): never {
+  killProcessGroup(pid, "SIGTERM");
+  finalizeStopped(dir);
+  console.error(
+    `\nworkflow: ${signal} received — terminated the running claude session (run marked failed)`,
+  );
+  process.exit(signal === "SIGINT" ? 130 : 143);
+}
+
 // Runs the given shell command in the foreground (--wait), persisting the real child
 // pid to meta.json BEFORE awaiting exit — a stop/status/list call from another shell
 // during the run must see a live pid, not the spawnSync-era gap where no pid was ever
@@ -257,6 +306,12 @@ export function resultFileName(resumeCount: number): string {
 // hedges exist for concurrent observers only — routing through it here would leave a
 // child killed before its `echo $? > exit-code` tail (SIGKILL/OOM) stuck "running"
 // with no result file for the whole grace period.
+//
+// While the child runs, SIGINT/SIGTERM delivered to this (foreground) process are
+// intercepted via handleForegroundSignal instead of using Node's default behavior —
+// otherwise ^C would kill only this wrapper and orphan the detached child. The
+// handlers are removed as soon as the child exits on its own so they don't linger
+// past this call and affect an unrelated later signal.
 export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta): Promise<void> {
   const child = spawn("/bin/sh", ["-c", shellCmd], {
     detached: true,
@@ -266,6 +321,16 @@ export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta
   meta.pid = child.pid;
   writeMeta(dir, meta);
 
+  const pid = child.pid;
+  const onSigint = () => handleForegroundSignal(pid, dir, "SIGINT");
+  const onSigterm = () => handleForegroundSignal(pid, dir, "SIGTERM");
+  process.once("SIGINT", onSigint);
+  process.once("SIGTERM", onSigterm);
+  const removeSignalHandlers = () => {
+    process.removeListener("SIGINT", onSigint);
+    process.removeListener("SIGTERM", onSigterm);
+  };
+
   let exitCode: number;
   try {
     exitCode = await new Promise<number>((resolveExit, reject) => {
@@ -273,9 +338,11 @@ export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta
       child.once("exit", (code) => resolveExit(code ?? 1));
     });
   } catch (err) {
+    removeSignalHandlers();
     finalizeExited(dir);
     fail(`child process error: ${err instanceof Error ? err.message : String(err)}`);
   }
+  removeSignalHandlers();
 
   const finalized = finalizeExited(dir);
   const result = readFileSync(join(dir, resultFileName(finalized.resumeCount)), "utf-8");
@@ -337,14 +404,20 @@ async function cmdResume(argv: string[]): Promise<void> {
 
   const n = meta.resumeCount + 1;
   const promptText = readPromptFile(values.prompt);
-  const claudeArgs = [
-    "--resume",
-    sessionId,
-    ...buildClaudeArgs(meta.mode, {
+  // Same guard as cmdStart: a corrupt/hand-edited meta.json can carry an
+  // explore+skipPermissions combination buildClaudeArgs rejects (skipPermissions is
+  // build-mode-only) — without this try/catch that throw escaped as an uncaught
+  // stack trace instead of the same clean `fail(...)` cmdStart gives the same error.
+  let modeArgs: string[];
+  try {
+    modeArgs = buildClaudeArgs(meta.mode, {
       skipPermissions: meta.skipPermissions,
       maxBudgetUsd: meta.maxBudgetUsd ?? undefined,
-    }),
-  ];
+    });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
+  const claudeArgs = ["--resume", sessionId, ...modeArgs];
   const shellCmd = buildShellCommand(claudeArgs, dir, meta.cwd, `-${n}`);
 
   // ensureClaudeOnPath() must run before any of prompt-<n>.md / meta.resumeCount /
@@ -355,6 +428,10 @@ async function cmdResume(argv: string[]): Promise<void> {
   writeFileSync(join(dir, `prompt-${n}.md`), promptText);
   meta.resumeCount = n;
   meta.state = "running";
+  // Refresh startedAt so finalizeIfNeeded's null-pid "starting" grace period
+  // (STARTING_GRACE_MS) applies to this resume generation rather than being keyed
+  // off the original run's startedAt, which could already be arbitrarily old.
+  meta.startedAt = new Date().toISOString();
 
   if (values.wait) {
     // Clear the stale pid from the previous generation before spawning the new one —

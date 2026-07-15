@@ -40,7 +40,10 @@ bun "$SCRIPTS/workflow.ts" result "$RUN"
 ```
 
 `--wait` runs in the foreground and prints the result directly — only for short
-explore runs, and only if your own shell tool won't time out first.
+explore runs, and only if your own shell tool won't time out first. Ctrl-C (or a
+SIGTERM) on a foreground run terminates the underlying `claude` session too, not
+just this wrapper — the run is marked `failed` and a subsequent `status`/`result`
+reports that, the same as an explicit `stop`.
 
 ## Modes
 
