@@ -148,6 +148,19 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
+// Reads the given generation's exit-code file (exit-code / exit-code-<n>, written by
+// the launcher's `echo $? >` tail), trims and parses it as an integer. Missing or
+// unparseable exit code files (not yet written, or corrupt) return null, which never
+// equals 0, so callers that require exit code 0 for success treat that as a failure
+// rather than trusting the log alone.
+function readExitCode(dir: string, suffix: string): number | null {
+  const path = join(dir, `exit-code${suffix}`);
+  if (!existsSync(path)) return null;
+  const raw = readFileSync(path, "utf-8").trim();
+  if (!/^-?\d+$/.test(raw)) return null;
+  return Number.parseInt(raw, 10);
+}
+
 // Reads the current generation's log (generation 0 = log.jsonl/result.md, resumes
 // use -<n> suffixes), extracts whatever result/session-id is available, writes the
 // result file and session-id file, and persists the given final state. Shared by
@@ -156,16 +169,20 @@ function finalizeFromLog(
   dir: string,
   meta: RunMeta,
   fallbackText: string,
-  computeState: (result: ReturnType<typeof extractResult>) => RunMeta["state"],
+  computeState: (
+    result: ReturnType<typeof extractResult>,
+    exitCode: number | null,
+  ) => RunMeta["state"],
 ): RunMeta {
   const suffix = meta.resumeCount > 0 ? `-${meta.resumeCount}` : "";
   const logPath = join(dir, `log${suffix}.jsonl`);
   const log = existsSync(logPath) ? readFileSync(logPath, "utf-8") : "";
   const result = extractResult(log);
+  const exitCode = readExitCode(dir, suffix);
 
   if (result.sessionId) writeFileSync(join(dir, "session-id"), `${result.sessionId}\n`);
   writeFileSync(join(dir, `result${suffix}.md`), result.found ? result.text : fallbackText);
-  meta.state = computeState(result);
+  meta.state = computeState(result, exitCode);
   writeMeta(dir, meta);
   return meta;
 }
@@ -179,7 +196,8 @@ export function finalizeIfNeeded(dir: string): RunMeta {
     dir,
     meta,
     "Run crashed before producing a result. See the log and stderr files.",
-    (result) => (result.found && !result.isError ? "completed" : "failed"),
+    (result, exitCode) =>
+      result.found && !result.isError && exitCode === 0 ? "completed" : "failed",
   );
 }
 

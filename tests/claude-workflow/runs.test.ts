@@ -117,6 +117,7 @@ describe("finalizeIfNeeded", () => {
   it("finalizes a completed run once the pid is dead", () => {
     const { dir, meta } = createRun("done-run", "explore", "/x", "p");
     writeFileSync(join(dir, "log.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code"), "0\n");
     meta.pid = 999999999; // dead
     writeMeta(dir, meta);
     const finalized = finalizeIfNeeded(dir);
@@ -131,6 +132,7 @@ describe("finalizeIfNeeded", () => {
       join(dir, "log.jsonl"),
       JSON.stringify({ type: "system", subtype: "init", session_id: "s2" }),
     );
+    writeFileSync(join(dir, "exit-code"), "0\n");
     meta.pid = 999999999;
     writeMeta(dir, meta);
     expect(finalizeIfNeeded(dir).state).toBe("failed");
@@ -139,6 +141,7 @@ describe("finalizeIfNeeded", () => {
   it("finalizes resumed runs from the generation log", () => {
     const { dir, meta } = createRun("resumed-run", "explore", "/x", "p");
     writeFileSync(join(dir, "log-1.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code-1"), "0\n");
     meta.pid = 999999999;
     meta.resumeCount = 1;
     writeMeta(dir, meta);
@@ -151,6 +154,45 @@ describe("finalizeIfNeeded", () => {
     meta.pid = process.pid;
     writeMeta(dir, meta);
     expect(finalizeIfNeeded(dir).state).toBe("running");
+  });
+
+  it("fails a run with a fabricated success event when the process exit code is nonzero (Codex probe)", () => {
+    const { dir, meta } = createRun("lying-run", "explore", "/x", "p");
+    writeFileSync(join(dir, "log.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code"), "7\n");
+    meta.pid = 999999999;
+    writeMeta(dir, meta);
+    const finalized = finalizeIfNeeded(dir);
+    expect(finalized.state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toBe("DONE");
+  });
+
+  it("fails a resumed run when the resume generation's exit code is nonzero", () => {
+    const { dir, meta } = createRun("resumed-lying-run", "explore", "/x", "p");
+    writeFileSync(join(dir, "log-1.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code-1"), "1\n");
+    meta.pid = 999999999;
+    meta.resumeCount = 1;
+    writeMeta(dir, meta);
+    expect(finalizeIfNeeded(dir).state).toBe("failed");
+  });
+
+  it("completes a resumed run when the resume generation's exit code is zero", () => {
+    const { dir, meta } = createRun("resumed-ok-run", "explore", "/x", "p");
+    writeFileSync(join(dir, "log-1.jsonl"), successLog);
+    writeFileSync(join(dir, "exit-code-1"), "0\n");
+    meta.pid = 999999999;
+    meta.resumeCount = 1;
+    writeMeta(dir, meta);
+    expect(finalizeIfNeeded(dir).state).toBe("completed");
+  });
+
+  it("fails a run with a success event but no exit-code file at all", () => {
+    const { dir, meta } = createRun("no-exit-code-run", "explore", "/x", "p");
+    writeFileSync(join(dir, "log.jsonl"), successLog);
+    meta.pid = 999999999;
+    writeMeta(dir, meta);
+    expect(finalizeIfNeeded(dir).state).toBe("failed");
   });
 });
 
