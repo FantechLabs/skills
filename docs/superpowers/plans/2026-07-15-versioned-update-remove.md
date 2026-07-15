@@ -44,6 +44,7 @@
 - Produces: `SkillInfo.version: string`.
 - Produces: `readSkillMetadata(skillDir: string): SkillMetadata`, where `version` is optional for legacy installed skills.
 - Produces: `parseStableVersion(version: string, context: string): StableVersion` and `compareStableVersions(left: StableVersion, right: StableVersion): number`.
+- Stable-version components remain numbers and must be safe integers; values above `Number.MAX_SAFE_INTEGER` are invalid.
 - Produces: `discoverBundledSkills(packageRoot?: string): SkillInfo[]`, which requires every discovered bundled skill to have a valid version.
 
 - [ ] **Step 1: Run the documentation RED scenario before changing `.ruler/AGENTS.md`**
@@ -69,7 +70,6 @@ import { cleanupTempProject, createTempProject } from "../utils/fs";
 describe("skill versions", () => {
   it("requires a stable semantic version on every bundled skill", () => {
     const skills = discoverBundledSkills();
-    expect(skills.map((skill) => skill.version)).toEqual(skills.map(() => "1.0.0"));
     for (const skill of skills) {
       expect(skill.version).toMatch(/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/);
     }
@@ -86,6 +86,10 @@ describe("skill versions", () => {
   it("orders stable semantic versions numerically", () => {
     expect(compareStableVersions(parseStableVersion("1.9.0", "left"), parseStableVersion("1.10.0", "right"))).toBeLessThan(0);
     expect(compareStableVersions(parseStableVersion("2.0.0", "left"), parseStableVersion("1.99.99", "right"))).toBeGreaterThan(0);
+  });
+
+  it("rejects semantic version components above the safe integer range", () => {
+    expect(() => parseStableVersion("9007199254740992.0.0", "example")).toThrow(/invalid skill version/i);
   });
 });
 ```
@@ -129,7 +133,13 @@ const STABLE_VERSION_PATTERN = /^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/
 export function parseStableVersion(version: string, context: string): StableVersion {
   const match = STABLE_VERSION_PATTERN.exec(version);
   if (!match) throw new Error(`Invalid skill version for ${context}: ${version}`);
-  return { raw: version, major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    throw new Error(`Invalid skill version for ${context}: ${version}`);
+  }
+  return { raw: version, major, minor, patch };
 }
 
 export function compareStableVersions(left: StableVersion, right: StableVersion): number {
@@ -144,7 +154,7 @@ Export `readSkillMetadata(skillDir)` by reusing the existing frontmatter parser.
 Add `version: 1.0.0` immediately after `name` in every bundled `SKILL.md`. Update `.ruler/AGENTS.md` so the frontmatter requirement and modification rules state:
 
 ```markdown
-Each `SKILL.md` must have YAML frontmatter with `name`, `version`, and `description`. New skills start at `version: 1.0.0`.
+Each `SKILL.md` must have YAML frontmatter with `name` (matching directory name, lowercase + hyphens), `version`, and `description` (what it does and when to use it). New skills start at `version: 1.0.0`.
 
 Whenever a skill's instructions, scripts, references, or assets change, bump its version in the same change: patch for fixes or wording, minor for backward-compatible capabilities, and major for breaking behavior. Before a regular npm release, verify every changed skill has an appropriate bump; unchanged skills keep their existing versions.
 ```
@@ -153,7 +163,7 @@ Whenever a skill's instructions, scripts, references, or assets change, bump its
 
 Run: `bun run test tests/cli/skill-versions.test.ts`
 
-Expected: PASS with all bundled versions exactly `1.0.0`.
+Expected: PASS with every bundled skill declaring a strict stable semantic version whose components are safe integers.
 
 Then ask a new fresh-context subagent the same repository-rule scenario from Step 1. Expected: it explicitly includes the appropriate skill version bump in the proposed change.
 

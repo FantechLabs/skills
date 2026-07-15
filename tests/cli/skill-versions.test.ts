@@ -12,7 +12,6 @@ import { cleanupTempProject, createTempProject } from "../utils/fs";
 describe("skill versions", () => {
   it("requires a stable semantic version on every bundled skill", () => {
     const skills = discoverBundledSkills();
-    expect(skills.map((skill) => skill.version)).toEqual(skills.map(() => "1.0.0"));
     for (const skill of skills) {
       expect(skill.version).toMatch(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
     }
@@ -42,5 +41,11 @@ describe("skill versions", () => {
         parseStableVersion("1.99.99", "right"),
       ),
     ).toBeGreaterThan(0);
+  });
+
+  it("rejects semantic version components above the safe integer range", () => {
+    expect(() => parseStableVersion("9007199254740992.0.0", "example")).toThrow(
+      /invalid skill version/i,
+    );
   });
 });

@@ -49,11 +49,18 @@ export function parseStableVersion(version: string, context: string): StableVers
     throw new Error(`Invalid skill version for ${context}: ${version}`);
   }
 
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    throw new Error(`Invalid skill version for ${context}: ${version}`);
+  }
+
   return {
     raw: version,
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
+    major,
+    minor,
+    patch,
   };
 }
 
