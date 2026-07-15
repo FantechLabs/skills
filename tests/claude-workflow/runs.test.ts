@@ -12,6 +12,7 @@ import {
   listRuns,
   readMeta,
   resolveRun,
+  STARTING_GRACE_MS,
   writeMeta,
 } from "../../claude-workflow/scripts/lib/runs";
 
@@ -193,6 +194,30 @@ describe("finalizeIfNeeded", () => {
     meta.pid = 999999999;
     writeMeta(dir, meta);
     expect(finalizeIfNeeded(dir).state).toBe("failed");
+  });
+});
+
+describe("finalizeIfNeeded - starting grace period", () => {
+  it("treats a null pid with a fresh startedAt as still running and writes nothing", () => {
+    const { dir } = createRun("starting-run", "explore", "/x", "p");
+    // createRun leaves meta.pid === null and startedAt === now, mimicking the
+    // createRun -> writeMeta -> spawn window before a real pid is persisted.
+    const before = readFileSync(join(dir, "meta.json"), "utf-8");
+
+    const finalized = finalizeIfNeeded(dir);
+
+    expect(finalized.state).toBe("running");
+    expect(readFileSync(join(dir, "meta.json"), "utf-8")).toBe(before);
+  });
+
+  it("finalizes a null pid run as failed once startedAt is older than the grace period", () => {
+    const { dir, meta } = createRun("stale-start-run", "explore", "/x", "p");
+    meta.startedAt = new Date(Date.now() - STARTING_GRACE_MS - 1_000).toISOString();
+    writeMeta(dir, meta);
+
+    const finalized = finalizeIfNeeded(dir);
+
+    expect(finalized.state).toBe("failed");
   });
 });
 

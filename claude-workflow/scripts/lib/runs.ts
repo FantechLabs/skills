@@ -17,6 +17,13 @@ export interface RunMeta {
   maxBudgetUsd: number | null;
 }
 
+// A freshly created run writes meta.json with pid: null before the child process is
+// spawned (createRun -> writeMeta -> spawn). A concurrent `status`/`list` landing in
+// that createRun -> spawn window must not mistake "starting" for "dead" just because
+// pid is still null. Only treat a null pid as a crashed start once it has been sitting
+// there longer than this grace period.
+export const STARTING_GRACE_MS = 5 * 60_000;
+
 export function runsBaseDir(): string {
   return process.env.CLAUDE_WORKFLOW_HOME ?? join(homedir(), ".agents", "claude-workflow", "runs");
 }
@@ -148,6 +155,20 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
+// A null pid means either "not spawned yet" (createRun -> writeMeta -> spawn window,
+// or launchAndWait's pre-spawn instant) or "spawned and already exited" (launchAndWait
+// clears pid back to null right after the child exits, then finalizes immediately in
+// the same tick). The exit-code file — the very last thing the shell command writes —
+// is the tell: if it's there, the child ran to completion and this is not a "starting"
+// run no matter how fresh startedAt is. Only fall back to the time-based grace period
+// when there's no such evidence yet, to avoid finalizing a run that just hasn't been
+// given a pid yet as "crashed".
+function isStillStarting(dir: string, meta: RunMeta): boolean {
+  const suffix = meta.resumeCount > 0 ? `-${meta.resumeCount}` : "";
+  if (existsSync(join(dir, `exit-code${suffix}`))) return false;
+  return Date.now() - new Date(meta.startedAt).getTime() < STARTING_GRACE_MS;
+}
+
 // Reads the given generation's exit-code file (exit-code / exit-code-<n>, written by
 // the launcher's `echo $? >` tail), trims and parses it as an integer. Missing or
 // unparseable exit code files (not yet written, or corrupt) return null, which never
@@ -191,6 +212,7 @@ export function finalizeIfNeeded(dir: string): RunMeta {
   const meta = readMeta(dir);
   if (meta.state !== "running") return meta;
   if (meta.pid !== null && isPidAlive(meta.pid)) return meta;
+  if (meta.pid === null && isStillStarting(dir, meta)) return meta;
 
   return finalizeFromLog(
     dir,

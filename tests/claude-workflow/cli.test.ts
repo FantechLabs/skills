@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { createRun, readMeta } from "../../claude-workflow/scripts/lib/runs";
 import {
   buildShellCommand,
+  launchAndWait,
   resultFileName,
   shellQuote,
 } from "../../claude-workflow/scripts/workflow";
@@ -28,6 +34,59 @@ describe("buildShellCommand", () => {
   it("quotes args containing parens (Bash tool patterns)", () => {
     const cmd = buildShellCommand(["--allowedTools", "Bash(git log:*)"], "/runs/r1", "/proj");
     expect(cmd).toContain("'Bash(git log:*)'");
+  });
+});
+
+describe("launchAndWait", () => {
+  let base: string;
+
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), "cw-cli-"));
+    process.env.CLAUDE_WORKFLOW_HOME = base;
+  });
+
+  afterEach(() => {
+    delete process.env.CLAUDE_WORKFLOW_HOME;
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  it("persists a live pid to meta.json before the child process exits", async () => {
+    const { dir, meta } = createRun("wait-run", "explore", "/tmp", "PROMPT");
+    // Hermetic stub in place of `claude`: sleeps briefly (so the test window can
+    // observe a live pid), then writes a minimal successful log + exit-code
+    // fixture, mirroring the tail of buildShellCommand's real shell command.
+    const logPath = join(dir, "log.jsonl");
+    const exitCodePath = join(dir, "exit-code");
+    const successEvent = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "OK",
+      session_id: "s1",
+    });
+    const shellCmd = [
+      "sleep 0.2",
+      `; echo ${shellQuote(successEvent)} > ${shellQuote(logPath)}`,
+      `; echo $? > ${shellQuote(exitCodePath)}`,
+    ].join(" ");
+
+    expect(readMeta(dir).pid).toBeNull();
+
+    let sawLivePid: number | null = null;
+    const poll = setInterval(() => {
+      const current = readMeta(dir);
+      if (current.pid !== null) sawLivePid = current.pid;
+    }, 20);
+
+    try {
+      await launchAndWait(shellCmd, dir, meta);
+    } finally {
+      clearInterval(poll);
+    }
+
+    expect(sawLivePid).not.toBeNull();
+    expect(sawLivePid).toBeGreaterThan(1);
+    expect(readMeta(dir).pid).toBeNull();
   });
 });
 

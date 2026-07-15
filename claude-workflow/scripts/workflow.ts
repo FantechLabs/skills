@@ -81,7 +81,7 @@ function parseMaxBudgetUsd(value: string | undefined): number | undefined {
   return parsed;
 }
 
-function cmdStart(argv: string[]): void {
+async function cmdStart(argv: string[]): Promise<void> {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -127,7 +127,7 @@ function cmdStart(argv: string[]): void {
 
   if (values.wait) {
     console.log(`run: ${dir} (foreground)`);
-    launchAndWait(shellCmd, dir, meta);
+    await launchAndWait(shellCmd, dir, meta);
     return;
   }
   meta.pid = launch(shellCmd, false);
@@ -140,13 +140,29 @@ export function resultFileName(resumeCount: number): string {
   return resumeCount > 0 ? `result-${resumeCount}.md` : "result.md";
 }
 
-function launchAndWait(shellCmd: string, dir: string, meta: RunMeta): void {
-  const res = spawnSync("/bin/sh", ["-c", shellCmd], { stdio: ["ignore", "ignore", "inherit"] });
+// Runs the given shell command in the foreground (--wait), persisting the real child
+// pid to meta.json BEFORE awaiting exit — a stop/status/list call from another shell
+// during the run must see a live pid, not the spawnSync-era gap where no pid was ever
+// recorded. detached: true keeps the process group killable the same way background
+// runs are (see cmdStop's process.kill(-pid, …)).
+export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta): Promise<void> {
+  const child = spawn("/bin/sh", ["-c", shellCmd], {
+    detached: true,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  if (child.pid === undefined) fail("failed to spawn /bin/sh");
+  meta.pid = child.pid;
+  writeMeta(dir, meta);
+
+  const exitCode = await new Promise<number>((resolveExit) => {
+    child.on("exit", (code) => resolveExit(code ?? 1));
+  });
+
   meta.pid = null;
   writeMeta(dir, meta);
   const finalized = finalizeIfNeeded(dir);
   const result = readFileSync(join(dir, resultFileName(finalized.resumeCount)), "utf-8");
-  if (res.status !== 0 || finalized.state === "failed") {
+  if (exitCode !== 0 || finalized.state === "failed") {
     console.error(result);
     process.exit(1);
   }
@@ -183,7 +199,7 @@ function cmdStop(argv: string[]): void {
   console.log(`stopped ${dir}`);
 }
 
-function cmdResume(argv: string[]): void {
+async function cmdResume(argv: string[]): Promise<void> {
   const runRef = argv[0] ?? fail("usage: resume <run> --prompt <file> [--wait]");
   const { values } = parseArgs({
     args: argv.slice(1),
@@ -222,9 +238,13 @@ function cmdResume(argv: string[]): void {
   ensureClaudeOnPath();
 
   if (values.wait) {
+    // Clear the stale pid from the previous generation before spawning the new one —
+    // finalizeIfNeeded's grace-period logic keys off pid === null meaning "starting",
+    // not "still holding a dead pid from the run this is resuming".
+    meta.pid = null;
     writeMeta(dir, meta);
     console.log(`resume ${n}: ${dir} (foreground)`);
-    launchAndWait(shellCmd, dir, meta);
+    await launchAndWait(shellCmd, dir, meta);
     return;
   }
   meta.pid = launch(shellCmd, false);
@@ -248,7 +268,7 @@ if (isMain()) {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
     case "start":
-      cmdStart(rest);
+      await cmdStart(rest);
       break;
     case "status":
       cmdStatus(rest);
@@ -260,7 +280,7 @@ if (isMain()) {
       cmdStop(rest);
       break;
     case "resume":
-      cmdResume(rest);
+      await cmdResume(rest);
       break;
     case "list":
       cmdList();
