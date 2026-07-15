@@ -3,6 +3,10 @@
   "version": "0.2.0",
   "description": "Shared agent skills and CLI for Fantech engineering practices",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FantechLabs/skills.git"
+  },
   "bin": {
     "skills": "bin/skills.mjs"
   },
