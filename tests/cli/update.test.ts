@@ -6,6 +6,8 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -116,6 +118,11 @@ function commandDependencies(options: {
   selectPlans?: UpdateCommandDependencies["selectPlans"];
   confirm?: UpdateCommandDependencies["confirm"];
   applyRuler?: UpdateCommandDependencies["applyRuler"];
+  fileSystem?: {
+    exists(path: string): boolean;
+    remove(path: string): void;
+    rename(sourcePath: string, destinationPath: string): void;
+  };
 }): UpdateCommandDependencies {
   return {
     cwd: () => options.cwd,
@@ -129,6 +136,17 @@ function commandDependencies(options: {
     selectPlans: options.selectPlans ?? (async () => []),
     confirm: options.confirm ?? (async () => true),
     applyRuler: options.applyRuler ?? (async () => undefined),
+    fileSystem: options.fileSystem ?? realUpdateFileSystem(),
+  };
+}
+
+function realUpdateFileSystem(): NonNullable<
+  Parameters<typeof commandDependencies>[0]["fileSystem"]
+> {
+  return {
+    exists: existsSync,
+    remove: (path) => rmSync(path, { recursive: true, force: true }),
+    rename: renameSync,
   };
 }
 
@@ -669,6 +687,151 @@ describe("runUpdateCommand", () => {
       expect(readFileSync(join(original.path, "identity.txt"), "utf-8")).toBe(original.identity);
     }
     expect(readdirSync(installRoot).sort()).toEqual(["commit", "review"]);
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("rolls back every live destination and cleans staging when a swap rename fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const commitPath = join(installRoot, "commit");
+    const reviewPath = join(installRoot, "review");
+    writeSkill(commitPath, "commit", "1.0.0", "original commit\n");
+    writeSkill(reviewPath, "review", "1.0.0", "original review\n");
+    const originals = [commitPath, reviewPath].map((path) => ({
+      path,
+      inode: statSync(path).ino,
+      skill: readFileSync(join(path, "SKILL.md"), "utf-8"),
+    }));
+    const fixture = createLatestPackage([
+      { name: "commit", version: "2.0.0" },
+      { name: "review", version: "2.0.0" },
+    ]);
+    const realFileSystem = realUpdateFileSystem();
+    const fileSystem = {
+      ...realFileSystem,
+      rename(sourcePath: string, destinationPath: string): void {
+        if (sourcePath.includes(".review.staging-") && destinationPath === reviewPath) {
+          throw new Error("injected live swap failure");
+        }
+        realFileSystem.rename(sourcePath, destinationPath);
+      },
+    };
+    const applyRuler = vi.fn<UpdateCommandDependencies["applyRuler"]>();
+
+    await expect(
+      runUpdateCommand(
+        ["--yes", "--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+          applyRuler,
+          fileSystem,
+        }),
+      ),
+    ).rejects.toThrow("injected live swap failure");
+
+    expect(applyRuler).not.toHaveBeenCalled();
+    for (const original of originals) {
+      expect(statSync(original.path).ino).toBe(original.inode);
+      expect(readFileSync(join(original.path, "SKILL.md"), "utf-8")).toBe(original.skill);
+    }
+    expect(readdirSync(installRoot).sort()).toEqual(["commit", "review"]);
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the committed update and warns with a retained backup when cleanup fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const installedPath = join(installRoot, "commit");
+    writeSkill(installedPath, "commit", "1.0.0", "original\n");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    const realFileSystem = realUpdateFileSystem();
+    let committed = false;
+    let retainedBackup = "";
+    const fileSystem = {
+      ...realFileSystem,
+      remove(path: string): void {
+        if (committed && path.includes(".commit.backup-")) {
+          retainedBackup = path;
+          throw new Error("injected backup cleanup failure");
+        }
+        realFileSystem.remove(path);
+      },
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await runUpdateCommand(
+      ["--yes", "--skip-deps"],
+      commandDependencies({
+        cwd,
+        installPaths: [installRoot],
+        latestPackage: fixture.latestPackage,
+        applyRuler: async () => {
+          committed = true;
+        },
+        fileSystem,
+      }),
+    );
+
+    expect(readFileSync(join(installedPath, "SKILL.md"), "utf-8")).toContain("version: 2.0.0");
+    expect(retainedBackup).not.toBe("");
+    expect(readFileSync(join(retainedBackup, "SKILL.md"), "utf-8")).toContain("version: 1.0.0");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(retainedBackup));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("injected backup cleanup failure"));
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("reports retained backups and rollback errors when restoration fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const installedPath = join(installRoot, "commit");
+    writeSkill(installedPath, "commit", "1.0.0", "original\n");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    const realFileSystem = realUpdateFileSystem();
+    let rollbackStarted = false;
+    let retainedBackup = "";
+    const fileSystem = {
+      ...realFileSystem,
+      rename(sourcePath: string, destinationPath: string): void {
+        if (
+          rollbackStarted &&
+          sourcePath.includes(".commit.backup-") &&
+          destinationPath === installedPath
+        ) {
+          retainedBackup = sourcePath;
+          throw new Error("injected rollback rename failure");
+        }
+        realFileSystem.rename(sourcePath, destinationPath);
+      },
+    };
+    let caught: unknown;
+
+    try {
+      await runUpdateCommand(
+        ["--yes", "--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+          applyRuler: async () => {
+            rollbackStarted = true;
+            throw new Error("injected apply failure");
+          },
+          fileSystem,
+        }),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("injected rollback rename failure");
+    expect(retainedBackup).not.toBe("");
+    expect((caught as Error).message).toContain(retainedBackup);
+    expect(existsSync(retainedBackup)).toBe(true);
+    expect(readFileSync(join(retainedBackup, "SKILL.md"), "utf-8")).toContain("version: 1.0.0");
+    expect(readdirSync(installRoot).every((entry) => !entry.includes(".staging-"))).toBe(true);
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 

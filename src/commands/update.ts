@@ -44,10 +44,17 @@ interface StagedSkillUpdate {
   stagingPath: string;
 }
 
+export interface UpdateFileSystem {
+  exists(path: string): boolean;
+  remove(path: string): void;
+  rename(sourcePath: string, destinationPath: string): void;
+}
+
 export interface UpdateCommandDependencies {
   applyRuler(options: RulerApplyOptions): Promise<void>;
   confirm(message: string): Promise<boolean | null>;
   cwd(): string;
+  fileSystem: UpdateFileSystem;
   isInteractive(): boolean;
   loadLatestPackage(): Promise<LatestSkillPackage>;
   resolveTargets(options: {
@@ -65,6 +72,11 @@ const defaultDependencies: UpdateCommandDependencies = {
     return p.isCancel(answer) ? null : answer;
   },
   cwd: () => process.cwd(),
+  fileSystem: {
+    exists: existsSync,
+    remove: (path) => rmSync(path, { recursive: true, force: true }),
+    rename: renameSync,
+  },
   isInteractive: () => !!(process.stdout.isTTY && process.stdin.isTTY),
   loadLatestPackage: () => loadLatestSkillPackage(),
   resolveTargets: resolveManagementTargets,
@@ -171,6 +183,7 @@ export async function runUpdateCommand(
     await applyUpdatesTransactionally({
       applyRuler: () => dependencies.applyRuler({ installPaths, interactive, yes: flags.yes }),
       cwd,
+      fileSystem: dependencies.fileSystem,
       installDependencies: !flags["skip-deps"],
       plans,
     });
@@ -261,6 +274,7 @@ Safety:
 async function applyUpdatesTransactionally(options: {
   applyRuler(): Promise<void>;
   cwd: string;
+  fileSystem: UpdateFileSystem;
   installDependencies: boolean;
   plans: SkillUpdatePlan[];
 }): Promise<void> {
@@ -269,8 +283,8 @@ async function applyUpdatesTransactionally(options: {
   try {
     for (const plan of options.plans) {
       for (const destinationPath of plan.updatePaths) {
-        const stagingPath = createUniqueSiblingPath(destinationPath, "staging");
-        const backupPath = createUniqueSiblingPath(destinationPath, "backup");
+        const stagingPath = createUniqueSiblingPath(destinationPath, "staging", options.fileSystem);
+        const backupPath = createUniqueSiblingPath(destinationPath, "backup", options.fileSystem);
         updates.push({ backupPath, destinationPath, name: plan.name, stagingPath });
         copySkill(plan.latest.path, stagingPath);
       }
@@ -281,51 +295,90 @@ async function applyUpdatesTransactionally(options: {
     }
 
     for (const update of updates) {
-      renameSync(update.destinationPath, update.backupPath);
-      renameSync(update.stagingPath, update.destinationPath);
+      options.fileSystem.rename(update.destinationPath, update.backupPath);
+      options.fileSystem.rename(update.stagingPath, update.destinationPath);
       console.log(`  ✓ ${update.name} -> ${update.destinationPath}`);
     }
 
     await options.applyRuler();
-
-    for (const update of updates) {
-      rmSync(update.backupPath, { recursive: true, force: true });
-    }
   } catch (error) {
-    const rollbackErrors: unknown[] = [];
+    const rollbackFailures: Array<{
+      backupPath: string;
+      destinationPath: string;
+      error: unknown;
+    }> = [];
     for (const update of [...updates].reverse()) {
-      if (!existsSync(update.backupPath)) {
+      if (!options.fileSystem.exists(update.backupPath)) {
         continue;
       }
 
       try {
-        rmSync(update.destinationPath, { recursive: true, force: true });
-        renameSync(update.backupPath, update.destinationPath);
+        options.fileSystem.remove(update.destinationPath);
+        options.fileSystem.rename(update.backupPath, update.destinationPath);
       } catch (rollbackError) {
-        rollbackErrors.push(rollbackError);
+        rollbackFailures.push({
+          backupPath: update.backupPath,
+          destinationPath: update.destinationPath,
+          error: rollbackError,
+        });
       }
     }
 
-    if (rollbackErrors.length > 0) {
+    if (rollbackFailures.length > 0) {
+      const retainedBackups = updates
+        .map((update) => update.backupPath)
+        .filter((backupPath) => options.fileSystem.exists(backupPath));
+      const retainedBackupDetails = retainedBackups.map((path) => `- ${path}`).join("\n");
+      const rollbackErrorDetails = rollbackFailures
+        .map(
+          (failure) =>
+            `- ${failure.backupPath} -> ${failure.destinationPath}: ${formatError(failure.error)}`,
+        )
+        .join("\n");
       throw new Error(
-        "Skill update failed and one or more original directories could not be restored.",
+        [
+          "Skill update failed and rollback was incomplete.",
+          `Original error: ${formatError(error)}`,
+          "Retained backups for manual recovery:",
+          retainedBackupDetails || "- none detected",
+          "Rollback errors:",
+          rollbackErrorDetails,
+        ].join("\n"),
         { cause: error },
       );
     }
     throw error;
   } finally {
     for (const update of updates) {
-      rmSync(update.stagingPath, { recursive: true, force: true });
+      options.fileSystem.remove(update.stagingPath);
+    }
+  }
+
+  for (const update of updates) {
+    try {
+      options.fileSystem.remove(update.backupPath);
+    } catch (error) {
+      console.warn(
+        `Update committed, but backup cleanup failed for ${update.backupPath}: ${formatError(error)}. Remove this retained backup manually.`,
+      );
     }
   }
 }
 
-function createUniqueSiblingPath(destinationPath: string, purpose: string): string {
+function createUniqueSiblingPath(
+  destinationPath: string,
+  purpose: string,
+  fileSystem: UpdateFileSystem,
+): string {
   const siblingPath = mkdtempSync(
     join(dirname(destinationPath), `.${basename(destinationPath)}.${purpose}-`),
   );
-  rmSync(siblingPath, { recursive: true });
+  fileSystem.remove(siblingPath);
   return siblingPath;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function installUpdatedDependencies(updates: StagedSkillUpdate[], cwd: string): void {
