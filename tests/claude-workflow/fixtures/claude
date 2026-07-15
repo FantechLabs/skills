@@ -1,0 +1,12 @@
+#!/bin/sh
+# Stub `claude` binary for cmdResume/cmdStart integration tests: satisfies
+# ensureClaudeOnPath()'s `claude --version` probe, and exits immediately for any
+# other invocation (`-p ... --resume ...`) instead of launching a real session —
+# tests that put this fixture's directory first on PATH never spend real API
+# budget or make network calls just to exercise workflow.ts's own bookkeeping
+# (meta.json fields, prompt/result file naming).
+if [ "$1" = "--version" ]; then
+  echo "0.0.0 (fake-claude test stub)"
+  exit 0
+fi
+exit 0

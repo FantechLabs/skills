@@ -12,6 +12,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "commit/scripts/**/*.ts"],
+  "include": ["src/**/*.ts", "commit/scripts/**/*.ts", "claude-workflow/scripts/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
