@@ -37,7 +37,7 @@ Repo integration: add `claude-workflow/` to the root `package.json` `files` arra
 - `status <run-dir|run-name>` — running / completed / failed, with stale-PID detection.
 - `result <run>` — prints `result.md` (errors if not finished).
 - `stop <run>` — terminates the process tree.
-- `resume <run> --prompt <file|string> [--wait]` — new turn via `claude --resume $(cat session-id)`, same mode/flags as the original run; writes a new result.
+- `resume <run> --prompt <file|string> [--wait]` — new turn via `claude --resume $(cat session-id)`, same mode/flags as the original run; writes a new result. Runs created before `meta.json` persisted `skipPermissions`/`maxBudgetUsd` resume with the safe default (`acceptEdits`, no skip-permissions) rather than their original posture, since there is nothing on disk to reproduce it from.
 - `list` — recent runs with status.
 
 ### Run directory

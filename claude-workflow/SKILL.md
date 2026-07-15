@@ -123,6 +123,10 @@ verbatim after a separator, and on any conflict YOUR instructions win. Include:
 A run terminated via `stop` subsequently reports `failed` from `status` and
 `result` — there is no separate "stopped" state.
 
+Runs created before this skill started persisting `skipPermissions`/`maxBudgetUsd`
+in `meta.json` resume with the safe default (`acceptEdits`, no skip-permissions),
+not whatever posture the original run actually used.
+
 ## Run artifacts
 
 `~/.agents/claude-workflow/runs/<timestamp>-<slug>/`: `prompt.md` (composed),
