@@ -835,7 +835,7 @@ describe("runUpdateCommand", () => {
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 
-  it("reports retained backups and rollback errors when restoration fails", async () => {
+  it("retains the live update and reports rollback diagnostics when restoration fails", async () => {
     const cwd = makeTempProject();
     const installRoot = join(cwd, ".agents", "skills");
     const installedPath = join(installRoot, "commit");
@@ -882,6 +882,8 @@ describe("runUpdateCommand", () => {
     expect((caught as Error).message).toContain("injected rollback rename failure");
     expect(retainedBackup).not.toBe("");
     expect((caught as Error).message).toContain(retainedBackup);
+    expect(existsSync(installedPath)).toBe(true);
+    expect(readFileSync(join(installedPath, "SKILL.md"), "utf-8")).toContain("version: 2.0.0");
     expect(existsSync(retainedBackup)).toBe(true);
     expect(readFileSync(join(retainedBackup, "SKILL.md"), "utf-8")).toContain("version: 1.0.0");
     expect(readdirSync(installRoot).every((entry) => !entry.includes(".staging-"))).toBe(true);

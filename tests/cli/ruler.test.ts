@@ -79,4 +79,27 @@ describe("applyRulerAfterChanges", () => {
 
     expect(warn).toHaveBeenCalledWith("`ruler apply` was terminated by signal SIGTERM.");
   });
+
+  it("reminds the user to run ruler apply after declining automatic apply", async () => {
+    vi.mocked(p.confirm).mockResolvedValue(false);
+    const spawnSyncImpl = vi.fn();
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await applyRulerAfterChanges(
+      {
+        installPaths: ["/project/.ruler/skills"],
+        interactive: true,
+        yes: false,
+      },
+      {
+        platform: "linux",
+        spawnSync: spawnSyncImpl as unknown as typeof spawnSync,
+      },
+    );
+
+    expect(spawnSyncImpl).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      "\nRun `ruler apply` to propagate .ruler skills to configured agents.",
+    );
+  });
 });

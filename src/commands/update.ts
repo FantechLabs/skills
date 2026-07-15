@@ -305,6 +305,7 @@ async function applyUpdatesTransactionally(options: {
     const rollbackFailures: Array<{
       backupPath: string;
       destinationPath: string;
+      displacedPath?: string;
       error: unknown;
     }> = [];
     for (const update of [...updates].reverse()) {
@@ -312,13 +313,55 @@ async function applyUpdatesTransactionally(options: {
         continue;
       }
 
+      let displacedPath: string | undefined;
       try {
-        options.fileSystem.remove(update.destinationPath);
-        options.fileSystem.rename(update.backupPath, update.destinationPath);
+        if (options.fileSystem.exists(update.destinationPath)) {
+          displacedPath = createUniqueSiblingPath(
+            update.destinationPath,
+            "rollback",
+            options.fileSystem,
+          );
+          options.fileSystem.rename(update.destinationPath, displacedPath);
+        }
+
+        try {
+          options.fileSystem.rename(update.backupPath, update.destinationPath);
+        } catch (rollbackError) {
+          if (displacedPath && options.fileSystem.exists(displacedPath)) {
+            try {
+              options.fileSystem.rename(displacedPath, update.destinationPath);
+              displacedPath = undefined;
+            } catch (displacedRestoreError) {
+              rollbackFailures.push({
+                backupPath: update.backupPath,
+                destinationPath: update.destinationPath,
+                displacedPath,
+                error: new Error(
+                  `${formatError(rollbackError)}; failed to restore displaced live update: ${formatError(displacedRestoreError)}`,
+                  { cause: rollbackError },
+                ),
+              });
+              continue;
+            }
+          }
+
+          rollbackFailures.push({
+            backupPath: update.backupPath,
+            destinationPath: update.destinationPath,
+            error: rollbackError,
+          });
+          continue;
+        }
+
+        if (displacedPath) {
+          options.fileSystem.remove(displacedPath);
+          displacedPath = undefined;
+        }
       } catch (rollbackError) {
         rollbackFailures.push({
           backupPath: update.backupPath,
           destinationPath: update.destinationPath,
+          displacedPath,
           error: rollbackError,
         });
       }
@@ -329,6 +372,12 @@ async function applyUpdatesTransactionally(options: {
         .map((update) => update.backupPath)
         .filter((backupPath) => options.fileSystem.exists(backupPath));
       const retainedBackupDetails = retainedBackups.map((path) => `- ${path}`).join("\n");
+      const retainedDisplacedPaths = rollbackFailures
+        .map((failure) => failure.displacedPath)
+        .filter(
+          (path): path is string => typeof path === "string" && options.fileSystem.exists(path),
+        );
+      const retainedDisplacedDetails = retainedDisplacedPaths.map((path) => `- ${path}`).join("\n");
       const rollbackErrorDetails = rollbackFailures
         .map(
           (failure) =>
@@ -341,6 +390,9 @@ async function applyUpdatesTransactionally(options: {
           `Original error: ${formatError(error)}`,
           "Retained backups for manual recovery:",
           retainedBackupDetails || "- none detected",
+          ...(retainedDisplacedPaths.length > 0
+            ? ["Retained displaced live updates for manual recovery:", retainedDisplacedDetails]
+            : []),
           "Rollback errors:",
           rollbackErrorDetails,
         ].join("\n"),

@@ -55,6 +55,8 @@ export async function applyRulerAfterChanges(
         } else if (typeof result.status === "number" && result.status !== 0) {
           console.warn(`\`ruler apply\` exited with code ${result.status}.`);
         }
+      } else {
+        console.log("\nRun `ruler apply` to propagate .ruler skills to configured agents.");
       }
     } else {
       console.log("\nRun `ruler apply` to propagate .ruler skills to configured agents.");
