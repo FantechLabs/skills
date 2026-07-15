@@ -35,7 +35,35 @@ describe("createRun", () => {
     expect(readFileSync(join(dir, "prompt.md"), "utf-8")).toBe("PROMPT");
     expect(meta.state).toBe("running");
     expect(meta.mode).toBe("explore");
+    expect(meta.skipPermissions).toBe(false);
+    expect(meta.maxBudgetUsd).toBeNull();
     expect(readMeta(dir)).toEqual(meta);
+  });
+
+  it("persists skipPermissions and maxBudgetUsd when provided", () => {
+    const { meta } = createRun("build-run", "build", "/tmp/proj", "PROMPT", {
+      skipPermissions: true,
+      maxBudgetUsd: 5,
+    });
+    expect(meta.skipPermissions).toBe(true);
+    expect(meta.maxBudgetUsd).toBe(5);
+  });
+});
+
+describe("readMeta backfill", () => {
+  it("defaults skipPermissions/maxBudgetUsd for old meta files missing the fields", () => {
+    const { dir } = createRun("legacy-run", "explore", "/tmp/proj", "PROMPT");
+    const legacy = JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    delete legacy.skipPermissions;
+    delete legacy.maxBudgetUsd;
+    writeFileSync(join(dir, "meta.json"), JSON.stringify(legacy, null, 2));
+
+    const meta = readMeta(dir);
+    expect(meta.skipPermissions).toBe(false);
+    expect(meta.maxBudgetUsd).toBeNull();
   });
 });
 

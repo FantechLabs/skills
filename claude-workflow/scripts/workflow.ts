@@ -72,6 +72,15 @@ function launch(shellCmd: string, wait: boolean): number {
   return child.pid;
 }
 
+function parseMaxBudgetUsd(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fail(`--max-budget-usd must be a positive number, got "${value}"`);
+  }
+  return parsed;
+}
+
 function cmdStart(argv: string[]): void {
   const { values } = parseArgs({
     args: argv,
@@ -82,26 +91,39 @@ function cmdStart(argv: string[]): void {
       name: { type: "string" },
       wait: { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: false },
+      "dangerously-skip-permissions": { type: "boolean", default: false },
+      "max-budget-usd": { type: "string" },
     },
   });
   const mode = requireMode(values.mode);
   const callerPrompt = readPromptFile(values.prompt);
   const cwd = resolve(values.cwd ?? process.cwd());
   const name = values.name ?? (values.prompt ?? "run").split("/").pop()!.replace(/\.md$/, "");
+  const skipPermissions = values["dangerously-skip-permissions"] ?? false;
+  const maxBudgetUsd = parseMaxBudgetUsd(values["max-budget-usd"]);
 
   const composed = composePrompt(callerPrompt, mode);
+  let claudeArgs: string[];
+  try {
+    claudeArgs = buildClaudeArgs(mode, { skipPermissions, maxBudgetUsd });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
 
   if (values["dry-run"]) {
     // Compose against the would-be dir without creating it — a dry-run must not
     // leave a run dir behind (it would later list as a crashed run).
     const dir = computeRunDir(name);
-    console.log(buildShellCommand(buildClaudeArgs(mode), dir, cwd));
+    console.log(buildShellCommand(claudeArgs, dir, cwd));
     return;
   }
 
   ensureClaudeOnPath();
-  const { dir, meta } = createRun(name, mode, cwd, composed);
-  const shellCmd = buildShellCommand(buildClaudeArgs(mode), dir, cwd);
+  const { dir, meta } = createRun(name, mode, cwd, composed, {
+    skipPermissions,
+    maxBudgetUsd: maxBudgetUsd ?? null,
+  });
+  const shellCmd = buildShellCommand(claudeArgs, dir, cwd);
 
   if (values.wait) {
     console.log(`run: ${dir} (foreground)`);
@@ -177,7 +199,14 @@ function cmdResume(argv: string[]): void {
   const n = meta.resumeCount + 1;
   const promptText = readPromptFile(values.prompt);
   const q = shellQuote;
-  const claudeArgs = ["--resume", sessionId, ...buildClaudeArgs(meta.mode)];
+  const claudeArgs = [
+    "--resume",
+    sessionId,
+    ...buildClaudeArgs(meta.mode, {
+      skipPermissions: meta.skipPermissions,
+      maxBudgetUsd: meta.maxBudgetUsd ?? undefined,
+    }),
+  ];
   const shellCmd = [
     `cd ${q(meta.cwd)}`,
     `&& CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 claude ${claudeArgs.map(q).join(" ")}`,

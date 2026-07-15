@@ -32,8 +32,8 @@ Repo integration: add `claude-workflow/` to the root `package.json` `files` arra
 
 ## CLI interface (`scripts/workflow.ts`)
 
-- `start --mode explore|build --prompt <file.md> [--cwd <dir>] [--name <slug>] [--wait]`
-  Composes the prompt, spawns `claude -p` (detached by default), creates a run directory, prints its path and initial status. `--wait` runs foreground and prints the result (intended for short explore runs).
+- `start --mode explore|build --prompt <file.md> [--cwd <dir>] [--name <slug>] [--wait] [--dangerously-skip-permissions] [--max-budget-usd <amount>]`
+  Composes the prompt, spawns `claude -p` (detached by default), creates a run directory, prints its path and initial status. `--wait` runs foreground and prints the result (intended for short explore runs). `--dangerously-skip-permissions` is build-mode-only (throws in explore); `--max-budget-usd` validates to a positive number and works in either mode. Both are persisted to `meta.json` so `resume` can reproduce the original posture.
 - `status <run-dir|run-name>` — running / completed / failed, with stale-PID detection.
 - `result <run>` — prints `result.md` (errors if not finished).
 - `stop <run>` — terminates the process tree.
@@ -47,7 +47,7 @@ Repo integration: add `claude-workflow/` to the root `package.json` `files` arra
 | File | Contents |
 | --- | --- |
 | `prompt.md` | Composed prompt (preamble + separator + caller prompt) |
-| `meta.json` | mode, cwd, pid, start time, state, resume history |
+| `meta.json` | mode, cwd, pid, start time, state, resume history, skipPermissions, maxBudgetUsd |
 | `log.jsonl` | Raw `stream-json` events (callers tail this for progress) |
 | `result.md` | Final result text, extracted from the terminal `result` event |
 | `session-id` | Session id for `resume` |
@@ -79,7 +79,7 @@ Exact allowlist, stated verbatim in SKILL.md:
 
 ### Build mode (read-write)
 
-`--dangerously-skip-permissions`. The caller opts into full autonomy by choosing build mode; the invoking harness provides its own sandbox/approval envelope around the skill.
+Default is `--permission-mode acceptEdits`: file edits (Edit/Write/NotebookEdit) are auto-approved, but Bash and any other tool not covered by the caller's own configured Claude permission rules are denied outright — headless mode never prompts. Full autonomy (`--dangerously-skip-permissions`) is an explicit opt-in flag, not the build-mode default; the caller choosing it is still expected to provide its own sandbox/approval envelope, since `--cwd` is a working directory, not a filesystem boundary.
 
 ## Prompt composition
 

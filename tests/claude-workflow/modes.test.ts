@@ -44,8 +44,20 @@ describe("buildClaudeArgs", () => {
     expect(args).not.toContain("--dangerously-skip-permissions");
   });
 
-  it("builds build args with skip-permissions and no tool lists", () => {
+  it("builds build args with acceptEdits permission mode by default", () => {
     const args = buildClaudeArgs("build");
+    expect(args).toEqual([
+      "-p",
+      "--verbose",
+      "--output-format",
+      "stream-json",
+      "--permission-mode",
+      "acceptEdits",
+    ]);
+  });
+
+  it("builds build args with --dangerously-skip-permissions when opted in", () => {
+    const args = buildClaudeArgs("build", { skipPermissions: true });
     expect(args).toEqual([
       "-p",
       "--verbose",
@@ -53,5 +65,21 @@ describe("buildClaudeArgs", () => {
       "stream-json",
       "--dangerously-skip-permissions",
     ]);
+  });
+
+  it("throws when skipPermissions is requested in explore mode", () => {
+    expect(() => buildClaudeArgs("explore", { skipPermissions: true })).toThrow(
+      "--dangerously-skip-permissions is only valid in build mode",
+    );
+  });
+
+  it("appends --max-budget-usd for explore mode", () => {
+    const args = buildClaudeArgs("explore", { maxBudgetUsd: 5 });
+    expect(args.slice(-2)).toEqual(["--max-budget-usd", "5"]);
+  });
+
+  it("appends --max-budget-usd for build mode", () => {
+    const args = buildClaudeArgs("build", { maxBudgetUsd: 5 });
+    expect(args.slice(-2)).toEqual(["--max-budget-usd", "5"]);
   });
 });

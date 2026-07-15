@@ -65,9 +65,24 @@ read-only in intent, not in a fully sandboxed sense.
 
 ### build (read-write)
 
-For implementation. Runs with `--dangerously-skip-permissions`: the session has
-full autonomy inside the target directory. Choose build mode only when you
-accept that, and prefer pointing `--cwd` at a worktree.
+For implementation. Default is `--permission-mode acceptEdits`: file edits
+(Edit/Write/NotebookEdit) are auto-approved, but Bash commands and any other
+tool NOT covered by the caller's own configured Claude permission rules are
+**denied outright** in headless mode — there is no prompt to fall back on, so
+a build run can stall on a legitimately-needed Bash command it isn't
+pre-approved for.
+
+Callers who need full autonomy (arbitrary Bash, no permission checks at all)
+must opt in explicitly with `--dangerously-skip-permissions`. This is a real
+escalation: the session gets unrestricted tool access. Only pass it alongside
+an outer sandbox — `--cwd` is just a working directory, not a filesystem or
+network boundary, so it does not by itself contain what the session can touch.
+
+### Budget cap
+
+`--max-budget-usd <amount>` is a hard cap on API spend for the run, available
+in both modes. The session stops once the cap is hit. Use it whenever a run's
+scope is uncertain or open-ended.
 
 ## Writing the prompt file
 
@@ -85,7 +100,7 @@ verbatim after a separator, and on any conflict YOUR instructions win. Include:
 
 | Command | Purpose |
 | --- | --- |
-| `start --mode <explore\|build> --prompt <file> [--cwd <dir>] [--name <slug>] [--wait] [--dry-run]` | Launch (background by default; prints run dir) |
+| `start --mode <explore\|build> --prompt <file> [--cwd <dir>] [--name <slug>] [--wait] [--dry-run] [--dangerously-skip-permissions] [--max-budget-usd <amount>]` | Launch (background by default; prints run dir) |
 | `status <run>` | `running` / `completed` / `failed` |
 | `result <run>` | Print the deliverable (exit 1 if failed) |
 | `stop <run>` | Terminate a run |

@@ -13,6 +13,8 @@ export interface RunMeta {
   startedAt: string;
   state: "running" | "completed" | "failed";
   resumeCount: number;
+  skipPermissions: boolean;
+  maxBudgetUsd: number | null;
 }
 
 export function runsBaseDir(): string {
@@ -39,11 +41,17 @@ export function computeRunDir(name: string): string {
   return join(runsBaseDir(), `${timestampSlug(new Date())}-${slugify(name)}`);
 }
 
+export interface CreateRunOptions {
+  skipPermissions?: boolean;
+  maxBudgetUsd?: number | null;
+}
+
 export function createRun(
   name: string,
   mode: Mode,
   cwd: string,
   composedPrompt: string,
+  opts?: CreateRunOptions,
 ): { dir: string; meta: RunMeta } {
   const dir = computeRunDir(name);
   mkdirSync(dir, { recursive: true });
@@ -56,13 +64,20 @@ export function createRun(
     startedAt: new Date().toISOString(),
     state: "running",
     resumeCount: 0,
+    skipPermissions: opts?.skipPermissions ?? false,
+    maxBudgetUsd: opts?.maxBudgetUsd ?? null,
   };
   writeMeta(dir, meta);
   return { dir, meta };
 }
 
 export function readMeta(dir: string): RunMeta {
-  return JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8")) as RunMeta;
+  const raw = JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8")) as Partial<RunMeta>;
+  return {
+    ...raw,
+    skipPermissions: raw.skipPermissions ?? false,
+    maxBudgetUsd: raw.maxBudgetUsd ?? null,
+  } as RunMeta;
 }
 
 export function writeMeta(dir: string, meta: RunMeta): void {
