@@ -4,10 +4,25 @@ import { fileURLToPath } from "node:url";
 
 export interface SkillInfo {
   name: string;
+  version: string;
   description: string;
   defaultScript?: string;
   hasScripts: boolean;
   path: string;
+}
+
+export interface SkillMetadata {
+  defaultScript?: string;
+  description: string;
+  name: string;
+  version?: string;
+}
+
+export interface StableVersion {
+  major: number;
+  minor: number;
+  patch: number;
+  raw: string;
 }
 
 export interface SkillDirectoryDiff {
@@ -19,6 +34,7 @@ export interface SkillDirectoryDiff {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, "..", "..");
+const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const IGNORED_FILE_NAMES = new Set([
   "bun.lock",
   "bun.lockb",
@@ -27,28 +43,62 @@ const IGNORED_FILE_NAMES = new Set([
   "yarn.lock",
 ]);
 
-export function discoverBundledSkills(): SkillInfo[] {
+export function parseStableVersion(version: string, context: string): StableVersion {
+  const match = STABLE_VERSION_PATTERN.exec(version);
+  if (!match) {
+    throw new Error(`Invalid skill version for ${context}: ${version}`);
+  }
+
+  return {
+    raw: version,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+export function compareStableVersions(left: StableVersion, right: StableVersion): number {
+  return left.major - right.major || left.minor - right.minor || left.patch - right.patch;
+}
+
+export function readSkillMetadata(skillDir: string): SkillMetadata {
+  const frontmatter = parseFrontmatter(readFileSync(join(skillDir, "SKILL.md"), "utf-8"));
+
+  return {
+    name: frontmatter.name || basename(skillDir),
+    version: frontmatter.version,
+    description: frontmatter.description || "",
+    defaultScript:
+      frontmatter.default_script || frontmatter["default-script"] || frontmatter.defaultScript,
+  };
+}
+
+export function discoverBundledSkills(packageRoot = PACKAGE_ROOT): SkillInfo[] {
   const skills: SkillInfo[] = [];
 
-  for (const entry of readdirSync(PACKAGE_ROOT, { withFileTypes: true })) {
+  for (const entry of readdirSync(packageRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) {
       continue;
     }
 
-    const skillDir = join(PACKAGE_ROOT, entry.name);
+    const skillDir = join(packageRoot, entry.name);
     const skillFile = join(skillDir, "SKILL.md");
 
     if (!existsSync(skillFile)) {
       continue;
     }
 
-    const frontmatter = parseFrontmatter(readFileSync(skillFile, "utf-8"));
+    const metadata = readSkillMetadata(skillDir);
+    if (!metadata.version) {
+      throw new Error(`Missing skill version for ${metadata.name} (missing version metadata)`);
+    }
+    const version = parseStableVersion(metadata.version, metadata.name).raw;
 
     skills.push({
-      name: frontmatter.name || entry.name,
-      description: frontmatter.description || "",
-      defaultScript:
-        frontmatter.default_script || frontmatter["default-script"] || frontmatter.defaultScript,
+      name: metadata.name,
+      version,
+      description: metadata.description,
+      defaultScript: metadata.defaultScript,
       hasScripts: existsSync(join(skillDir, "scripts")),
       path: skillDir,
     });

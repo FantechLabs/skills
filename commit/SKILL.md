@@ -1,5 +1,6 @@
 ---
 name: commit
+version: 1.0.0
 description: Create git commits following conventional commits. Adapts to monorepos (scoped per package) and single-package projects. Use when committing changes, creating commit messages, or asking about commit conventions.
 ---
 

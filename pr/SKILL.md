@@ -1,5 +1,6 @@
 ---
 name: pr
+version: 1.0.0
 description: Create pull requests with practical preflight checks, branch-scoped changeset validation, issue linking, and reviewer suggestions for GitHub/GitLab.
 ---
 
