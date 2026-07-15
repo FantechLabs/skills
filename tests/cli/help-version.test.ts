@@ -11,6 +11,9 @@ describe("cli help and version", () => {
     expect(result.stdout).not.toContain("@fantech/skills");
     expect(result.stdout).toContain("Usage:");
     expect(result.stdout).toContain("skills <command>");
+    expect(result.stdout).toContain("update [skills...]");
+    expect(result.stdout).toContain("remove [skills...]");
+    expect(result.stdout).not.toContain("coming soon");
   });
 
   it("shows semantic version", () => {
