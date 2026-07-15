@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -88,6 +88,19 @@ describe("resolveRun / listRuns", () => {
     const runs = listRuns();
     expect(runs.map((r) => r.meta.name)).toContain("alpha");
     expect(runs.map((r) => r.meta.name)).toContain("beta");
+  });
+
+  it("prefers the endsWith tier over an ambiguous substring-only match", () => {
+    // A collision between "TS-alpha" and its "-2" fallback (allocateRunDir's
+    // dedup suffix) must not make resolveRun("alpha") ambiguous: the endsWith
+    // tier has exactly one match ("TS-alpha") even though the includes tier
+    // would match both.
+    mkdirSync(join(base, "TS-alpha"));
+    mkdirSync(join(base, "TS-alpha-2"));
+
+    expect(resolveRun("alpha")).toBe(join(base, "TS-alpha"));
+    // "alph" only ever matches via the includes tier, where both dirs match.
+    expect(() => resolveRun("alph")).toThrow(/ambiguous/i);
   });
 });
 

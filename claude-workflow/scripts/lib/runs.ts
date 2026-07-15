@@ -119,15 +119,29 @@ export function writeMeta(dir: string, meta: RunMeta): void {
   writeFileSync(join(dir, "meta.json"), JSON.stringify(meta, null, 2));
 }
 
+// Tiered so a directory-name collision (allocateRunDir's "-2", "-3", ... dedup
+// suffixes) never makes an unambiguous ref ambiguous: "TS-alpha" plus its
+// collision fallback "TS-alpha-2" both `includes("alpha")`, but only "TS-alpha"
+// `endsWith("-alpha")`, so the endsWith tier resolves it uniquely. Each tier is
+// strictly broader than the last (exact -> suffix -> substring); the first tier
+// with exactly one match wins, multiple matches within a tier is ambiguous, and
+// falling through every tier empty is a no-match.
+const RESOLVE_TIERS: ((d: string, ref: string) => boolean)[] = [
+  (d, ref) => d === ref,
+  (d, ref) => d.endsWith(`-${ref}`),
+  (d, ref) => d.includes(ref),
+];
+
 export function resolveRun(ref: string): string {
   if (isAbsolute(ref) && existsSync(join(ref, "meta.json"))) return ref;
   const base = runsBaseDir();
-  const matches = existsSync(base)
-    ? readdirSync(base).filter((d) => d === ref || d.endsWith(`-${ref}`) || d.includes(ref))
-    : [];
-  if (matches.length === 0) throw new Error(`no run matching "${ref}" under ${base}`);
-  if (matches.length > 1) throw new Error(`ambiguous run "${ref}": ${matches.join(", ")}`);
-  return join(base, matches[0]);
+  const dirs = existsSync(base) ? readdirSync(base) : [];
+  for (const tier of RESOLVE_TIERS) {
+    const matches = dirs.filter((d) => tier(d, ref));
+    if (matches.length === 1) return join(base, matches[0]);
+    if (matches.length > 1) throw new Error(`ambiguous run "${ref}": ${matches.join(", ")}`);
+  }
+  throw new Error(`no run matching "${ref}" under ${base}`);
 }
 
 export function listRuns(): { dir: string; meta: RunMeta }[] {

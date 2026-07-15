@@ -26,17 +26,118 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-export function buildShellCommand(claudeArgs: string[], dir: string, cwd: string): string {
+// suffix distinguishes resumed generations (cmdResume passes `-${n}`) so
+// prompt/log/stderr/exit-code filenames line up with resultFileName's
+// `result-<n>.md` convention; the default "" keeps the original run's
+// unsuffixed prompt.md/log.jsonl/stderr.log/exit-code.
+export function buildShellCommand(
+  claudeArgs: string[],
+  dir: string,
+  cwd: string,
+  suffix = "",
+): string {
   const q = shellQuote;
   const claude = `claude ${claudeArgs.map(q).join(" ")}`;
   return [
     `cd ${q(cwd)}`,
     `&& CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 ${claude}`,
-    `< ${q(join(dir, "prompt.md"))}`,
-    `> ${q(join(dir, "log.jsonl"))}`,
-    `2> ${q(join(dir, "stderr.log"))};`,
-    `echo $? > ${q(join(dir, "exit-code"))}`,
+    `< ${q(join(dir, `prompt${suffix}.md`))}`,
+    `> ${q(join(dir, `log${suffix}.jsonl`))}`,
+    `2> ${q(join(dir, `stderr${suffix}.log`))};`,
+    `echo $? > ${q(join(dir, `exit-code${suffix}`))}`,
   ].join(" ");
+}
+
+const SUBCOMMANDS = ["start", "status", "result", "stop", "resume", "list"] as const;
+type Subcommand = (typeof SUBCOMMANDS)[number];
+
+const SUBCOMMAND_SUMMARY: Record<Subcommand, string> = {
+  start: "Launch a run (background by default; prints run dir)",
+  status: "Print a run's state: running / completed / failed",
+  result: "Print the deliverable (exit 1 if failed)",
+  stop: "Terminate a run",
+  resume: "Follow-up turn in the same session",
+  list: "List recent runs",
+};
+
+const SUBCOMMAND_USAGE: Record<Subcommand, string> = {
+  start: [
+    "usage: workflow.ts start --mode <explore|build> --prompt <file> [options]",
+    "",
+    SUBCOMMAND_SUMMARY.start + ".",
+    "",
+    "Options:",
+    "  --mode <explore|build>           Required. Run mode.",
+    "  --prompt <file>                  Required. Prompt file to send.",
+    "  --cwd <dir>                      Working directory (default: current dir)",
+    "  --name <slug>                    Run name (default: derived from prompt filename)",
+    "  --wait                           Run in the foreground and print the result",
+    "  --dry-run                        Print the shell command without launching",
+    "  --dangerously-skip-permissions   Skip permission prompts (use with caution)",
+    "  --max-budget-usd <amount>        Stop the session once this USD budget is spent",
+  ].join("\n"),
+  status: ["usage: workflow.ts status <run>", "", SUBCOMMAND_SUMMARY.status + "."].join("\n"),
+  result: ["usage: workflow.ts result <run>", "", SUBCOMMAND_SUMMARY.result + "."].join("\n"),
+  stop: ["usage: workflow.ts stop <run>", "", SUBCOMMAND_SUMMARY.stop + "."].join("\n"),
+  resume: [
+    "usage: workflow.ts resume <run> --prompt <file> [--wait]",
+    "",
+    SUBCOMMAND_SUMMARY.resume + ".",
+    "",
+    "Options:",
+    "  --prompt <file>   Required. Follow-up prompt file.",
+    "  --wait            Run in the foreground and print the result",
+  ].join("\n"),
+  list: ["usage: workflow.ts list", "", SUBCOMMAND_SUMMARY.list + "."].join("\n"),
+};
+
+function isSubcommand(command: string): command is Subcommand {
+  return (SUBCOMMANDS as readonly string[]).includes(command);
+}
+
+export function usageText(command?: string): string {
+  if (command && isSubcommand(command)) return SUBCOMMAND_USAGE[command];
+  return [
+    "usage: workflow.ts <command> [options]",
+    "",
+    "Commands:",
+    ...SUBCOMMANDS.map((c) => `  ${c.padEnd(8)} ${SUBCOMMAND_SUMMARY[c]}`),
+    "",
+    "Run 'workflow.ts <command> --help' for command-specific options.",
+  ].join("\n");
+}
+
+// Subcommand argv may include --help/-h before we've validated anything else
+// (e.g. `start --help` with no --mode/--prompt) — check for it up front so
+// help always short-circuits to usage + exit 0 instead of tripping a
+// "required flag missing" or parseArgs error first.
+function checkHelp(command: Subcommand, argv: string[]): void {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    console.log(usageText(command));
+    process.exit(0);
+  }
+}
+
+function isParseArgsError(err: unknown): err is NodeJS.ErrnoException {
+  if (!(err instanceof Error) || !("code" in err)) return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" || code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE";
+}
+
+// Wraps a subcommand's parseArgs call so a bad flag (unknown option, invalid
+// value) prints `error: <message>` + that subcommand's usage and exits 1 —
+// never an uncaught ERR_PARSE_ARGS_* stack trace.
+function parseArgsOrFail<T>(command: Subcommand, run: () => T): T {
+  try {
+    return run();
+  } catch (err) {
+    if (isParseArgsError(err)) {
+      console.error(`error: ${err.message}`);
+      console.error(usageText(command));
+      process.exit(1);
+    }
+    throw err;
+  }
 }
 
 function fail(message: string): never {
@@ -83,19 +184,22 @@ function parseMaxBudgetUsd(value: string | undefined): number | undefined {
 }
 
 async function cmdStart(argv: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args: argv,
-    options: {
-      mode: { type: "string" },
-      prompt: { type: "string" },
-      cwd: { type: "string" },
-      name: { type: "string" },
-      wait: { type: "boolean", default: false },
-      "dry-run": { type: "boolean", default: false },
-      "dangerously-skip-permissions": { type: "boolean", default: false },
-      "max-budget-usd": { type: "string" },
-    },
-  });
+  checkHelp("start", argv);
+  const { values } = parseArgsOrFail("start", () =>
+    parseArgs({
+      args: argv,
+      options: {
+        mode: { type: "string" },
+        prompt: { type: "string" },
+        cwd: { type: "string" },
+        name: { type: "string" },
+        wait: { type: "boolean", default: false },
+        "dry-run": { type: "boolean", default: false },
+        "dangerously-skip-permissions": { type: "boolean", default: false },
+        "max-budget-usd": { type: "string" },
+      },
+    }),
+  );
   const mode = requireMode(values.mode);
   const callerPrompt = readPromptFile(values.prompt);
   const cwd = resolve(values.cwd ?? process.cwd());
@@ -183,11 +287,13 @@ export async function launchAndWait(shellCmd: string, dir: string, meta: RunMeta
 }
 
 function cmdStatus(argv: string[]): void {
+  checkHelp("status", argv);
   const dir = resolveRun(argv[0] ?? fail("usage: status <run>"));
   console.log(finalizeIfNeeded(dir).state);
 }
 
 function cmdResult(argv: string[]): void {
+  checkHelp("result", argv);
   const dir = resolveRun(argv[0] ?? fail("usage: result <run>"));
   const meta = finalizeIfNeeded(dir);
   if (meta.state === "running") fail("run is still in progress");
@@ -196,6 +302,7 @@ function cmdResult(argv: string[]): void {
 }
 
 function cmdStop(argv: string[]): void {
+  checkHelp("stop", argv);
   const dir = resolveRun(argv[0] ?? fail("usage: stop <run>"));
   const meta = readMeta(dir);
   // Defense in depth on top of isPidAlive's own pid<=1 guard: never let a corrupt
@@ -213,11 +320,14 @@ function cmdStop(argv: string[]): void {
 }
 
 async function cmdResume(argv: string[]): Promise<void> {
+  checkHelp("resume", argv);
   const runRef = argv[0] ?? fail("usage: resume <run> --prompt <file> [--wait]");
-  const { values } = parseArgs({
-    args: argv.slice(1),
-    options: { prompt: { type: "string" }, wait: { type: "boolean", default: false } },
-  });
+  const { values } = parseArgsOrFail("resume", () =>
+    parseArgs({
+      args: argv.slice(1),
+      options: { prompt: { type: "string" }, wait: { type: "boolean", default: false } },
+    }),
+  );
   const dir = resolveRun(runRef);
   const meta = finalizeIfNeeded(dir);
   if (meta.state === "running") fail("run is still in progress; wait or stop it first");
@@ -227,7 +337,6 @@ async function cmdResume(argv: string[]): Promise<void> {
 
   const n = meta.resumeCount + 1;
   const promptText = readPromptFile(values.prompt);
-  const q = shellQuote;
   const claudeArgs = [
     "--resume",
     sessionId,
@@ -236,19 +345,16 @@ async function cmdResume(argv: string[]): Promise<void> {
       maxBudgetUsd: meta.maxBudgetUsd ?? undefined,
     }),
   ];
-  const shellCmd = [
-    `cd ${q(meta.cwd)}`,
-    `&& CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 claude ${claudeArgs.map(q).join(" ")}`,
-    `< ${q(join(dir, `prompt-${n}.md`))}`,
-    `> ${q(join(dir, `log-${n}.jsonl`))}`,
-    `2> ${q(join(dir, `stderr-${n}.log`))};`,
-    `echo $? > ${q(join(dir, `exit-code-${n}`))}`,
-  ].join(" ");
+  const shellCmd = buildShellCommand(claudeArgs, dir, meta.cwd, `-${n}`);
+
+  // ensureClaudeOnPath() must run before any of prompt-<n>.md / meta.resumeCount /
+  // meta.state are written — otherwise a missing `claude` binary leaves an orphaned
+  // prompt-<n>.md and a resumeCount bump behind with no run ever launched.
+  ensureClaudeOnPath();
 
   writeFileSync(join(dir, `prompt-${n}.md`), promptText);
   meta.resumeCount = n;
   meta.state = "running";
-  ensureClaudeOnPath();
 
   if (values.wait) {
     // Clear the stale pid from the previous generation before spawning the new one —
@@ -265,7 +371,8 @@ async function cmdResume(argv: string[]): Promise<void> {
   console.log(`resume ${n} started for ${dir}`);
 }
 
-function cmdList(): void {
+function cmdList(argv: string[]): void {
+  checkHelp("list", argv);
   for (const { dir, meta } of listRuns()) {
     console.log(`${meta.state.padEnd(9)} ${meta.mode.padEnd(7)} ${meta.name.padEnd(24)} ${dir}`);
   }
@@ -280,6 +387,12 @@ function isMain(): boolean {
 if (isMain()) {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
+    case "--help":
+    case "-h":
+    case "help":
+      console.log(usageText());
+      process.exit(0);
+      break;
     case "start":
       await cmdStart(rest);
       break;
@@ -296,12 +409,15 @@ if (isMain()) {
       await cmdResume(rest);
       break;
     case "list":
-      cmdList();
+      cmdList(rest);
       break;
     case undefined:
-      fail("usage: workflow.ts <start|status|result|stop|resume|list> …");
+      console.error(usageText());
+      process.exit(1);
       break;
     default:
-      fail(`unknown command "${command}"`);
+      console.error(`error: unknown command "${command}"`);
+      console.error(usageText());
+      process.exit(1);
   }
 }

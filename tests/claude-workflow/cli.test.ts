@@ -1,6 +1,8 @@
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,7 +12,11 @@ import {
   launchAndWait,
   resultFileName,
   shellQuote,
+  usageText,
 } from "../../claude-workflow/scripts/workflow";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const WORKFLOW_TS = resolve(__dirname, "../../claude-workflow/scripts/workflow.ts");
 
 describe("shellQuote", () => {
   it("single-quotes and escapes embedded quotes", () => {
@@ -34,6 +40,64 @@ describe("buildShellCommand", () => {
   it("quotes args containing parens (Bash tool patterns)", () => {
     const cmd = buildShellCommand(["--allowedTools", "Bash(git log:*)"], "/runs/r1", "/proj");
     expect(cmd).toContain("'Bash(git log:*)'");
+  });
+
+  it("applies a suffix to prompt/log/stderr/exit-code filenames", () => {
+    const cmd = buildShellCommand(["-p"], "/runs/r1", "/proj", "-1");
+    expect(cmd).toContain("< '/runs/r1/prompt-1.md'");
+    expect(cmd).toContain("> '/runs/r1/log-1.jsonl'");
+    expect(cmd).toContain("2> '/runs/r1/stderr-1.log'");
+    expect(cmd).toContain("echo $? > '/runs/r1/exit-code-1'");
+  });
+
+  it("defaults to unsuffixed filenames when no suffix is given", () => {
+    const cmd = buildShellCommand(["-p"], "/runs/r1", "/proj");
+    expect(cmd).toContain("< '/runs/r1/prompt.md'");
+    expect(cmd).toContain("> '/runs/r1/log.jsonl'");
+    expect(cmd).toContain("2> '/runs/r1/stderr.log'");
+    expect(cmd).toContain("echo $? > '/runs/r1/exit-code'");
+  });
+});
+
+describe("usageText", () => {
+  it("lists every subcommand with a one-line purpose", () => {
+    const root = usageText();
+    for (const command of ["start", "status", "result", "stop", "resume", "list"]) {
+      expect(root).toContain(command);
+    }
+  });
+
+  it("mentions start's flags including Fix A's skip-permissions and budget cap", () => {
+    const startUsage = usageText("start");
+    expect(startUsage).toContain("--mode");
+    expect(startUsage).toContain("--prompt");
+    expect(startUsage).toContain("--dry-run");
+    expect(startUsage).toContain("--dangerously-skip-permissions");
+    expect(startUsage).toContain("--max-budget-usd");
+  });
+});
+
+describe("workflow.ts CLI process", () => {
+  it("--help at the root prints usage and exits 0", () => {
+    const result = spawnSync("bun", [WORKFLOW_TS, "--help"], { encoding: "utf-8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("start");
+    expect(result.stdout).toContain("resume");
+  });
+
+  it("start --help prints subcommand usage and exits 0", () => {
+    const result = spawnSync("bun", [WORKFLOW_TS, "start", "--help"], { encoding: "utf-8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("--mode");
+    expect(result.stdout).toContain("--dangerously-skip-permissions");
+  });
+
+  it("start --bogus-flag exits 1 with a clean error, never an uncaught stack trace", () => {
+    const result = spawnSync("bun", [WORKFLOW_TS, "start", "--bogus-flag"], { encoding: "utf-8" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("error:");
+    expect(result.stderr).not.toContain("at ");
+    expect(result.stderr).not.toContain("ERR_PARSE_ARGS_UNKNOWN_OPTION");
   });
 });
 
