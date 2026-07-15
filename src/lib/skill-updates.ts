@@ -48,7 +48,7 @@ export function planSkillUpdates(
 
     outdatedLocations.sort((left, right) => left.path.localeCompare(right.path));
     plans.push({
-      installedVersions: sortInstalledVersions(outdatedLocations),
+      installedVersions: sortInstalledVersions(installedByName.get(name) ?? []),
       latest: latestSkill,
       locations: outdatedLocations,
       name,

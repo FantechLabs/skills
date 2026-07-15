@@ -51,9 +51,19 @@ function writeSkill(skillDir: string, name: string): void {
   );
 }
 
+function lstatExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function commandDependencies(options: {
   cwd: string;
   installPaths: string[];
+  relatedInstallPaths?: string[];
   interactive?: boolean;
   confirm?: RemoveCommandDependencies["confirm"];
   selectPlans?: RemoveCommandDependencies["selectPlans"];
@@ -69,6 +79,7 @@ function commandDependencies(options: {
       options.resolveTargets ??
       (async (): Promise<InstallTargetResolution> => ({
         installPaths: options.installPaths,
+        relatedInstallPaths: options.relatedInstallPaths ?? options.installPaths,
         useSymlinkMode: false,
       })),
     selectPlans: options.selectPlans ?? (async () => []),
@@ -297,6 +308,56 @@ describe("runRemoveCommand", () => {
     expect(resolvedFlags).toMatchObject({ agent: ["claude"], global: true, yes: true });
     expect(existsSync(claudeLink)).toBe(false);
     expect(existsSync(join(sharedSource, "SKILL.md"))).toBe(true);
+  });
+
+  it("removes detected global links when their narrowly selected shared source is removed", async () => {
+    const cwd = makeTempProject();
+    const agentsRoot = join(cwd, ".agents", "skills");
+    const claudeRoot = join(cwd, ".claude", "skills");
+    const cursorRoot = join(cwd, ".cursor", "skills");
+    const source = join(agentsRoot, "commit");
+    const claudeLink = join(claudeRoot, "commit");
+    const cursorLink = join(cursorRoot, "commit");
+    writeSkill(source, "commit");
+    mkdirSync(claudeRoot, { recursive: true });
+    mkdirSync(cursorRoot, { recursive: true });
+    symlinkSync(source, claudeLink);
+    symlinkSync(source, cursorLink);
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((message = "") => logs.push(String(message)));
+
+    await runRemoveCommand(
+      ["commit", "--yes", "--global", "--agent", "agents"],
+      commandDependencies({
+        cwd,
+        installPaths: [agentsRoot],
+        relatedInstallPaths: [agentsRoot, claudeRoot, cursorRoot],
+      }),
+    );
+
+    expect(logs.join("\n")).toContain(`${source} (shared source)`);
+    expect(logs.join("\n")).toContain(`${claudeLink} (affected symlink)`);
+    expect(logs.join("\n")).toContain(`${cursorLink} (affected symlink)`);
+    expect(lstatExists(source)).toBe(false);
+    expect(lstatExists(claudeLink)).toBe(false);
+    expect(lstatExists(cursorLink)).toBe(false);
+  });
+
+  it("shows remove help without resolving targets", async () => {
+    const cwd = makeTempProject();
+    const resolveTargets = vi.fn<RemoveCommandDependencies["resolveTargets"]>();
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((message = "") => logs.push(String(message)));
+
+    const result = await runRemoveCommand(["--help"], {
+      ...commandDependencies({ cwd, installPaths: [] }),
+      resolveTargets,
+    });
+
+    expect(result).toBe(0);
+    expect(resolveTargets).not.toHaveBeenCalled();
+    expect(logs.join("\n")).toMatch(/requires explicit skill names/i);
+    expect(logs.join("\n")).toMatch(/shared source/i);
   });
 
   it("prints every logical location and marks symlinks", async () => {

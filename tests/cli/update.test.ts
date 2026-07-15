@@ -108,6 +108,7 @@ function createLatestPackage(
 function commandDependencies(options: {
   cwd: string;
   installPaths: string[];
+  relatedInstallPaths?: string[];
   interactive?: boolean;
   latestPackage: LatestSkillPackage;
   selectPlans?: UpdateCommandDependencies["selectPlans"];
@@ -119,6 +120,7 @@ function commandDependencies(options: {
     loadLatestPackage: async () => options.latestPackage,
     resolveTargets: async () => ({
       installPaths: options.installPaths,
+      relatedInstallPaths: options.relatedInstallPaths ?? options.installPaths,
       useSymlinkMode: false,
     }),
     selectPlans: options.selectPlans ?? (async () => []),
@@ -166,7 +168,23 @@ describe("planSkillUpdates", () => {
       "/claude/commit",
     ]);
     expect(plans[0].updatePaths).toEqual(["/shared/commit"]);
-    expect(formatVersionTransition(plans[0])).toContain("legacy, 1.0.0 -> 2.0.0");
+    expect(formatVersionTransition(plans[0])).toContain("legacy, 1.0.0, 2.0.0 -> 2.0.0");
+  });
+
+  it("summarizes every resolved installed version while updating only outdated locations", () => {
+    const plans = planSkillUpdates(
+      [
+        installed("commit", undefined, "/legacy", "/agents/commit"),
+        installed("commit", "1.0.0", "/older", "/claude/commit"),
+        installed("commit", "2.0.0", "/current", "/cursor/commit"),
+        installed("commit", "3.0.0", "/ahead", "/other/commit"),
+      ],
+      [latest("commit", "2.0.0")],
+      [],
+    );
+
+    expect(plans[0].installedVersions).toEqual(["legacy", "1.0.0", "2.0.0", "3.0.0"]);
+    expect(plans[0].updatePaths).toEqual(["/legacy", "/older"]);
   });
 
   it("limits plans to explicit requested names", () => {
@@ -322,6 +340,65 @@ describe("runUpdateCommand", () => {
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 
+  it("reports unnamed installed skills absent from latest npm as not updateable", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    writeSkill(join(installRoot, "private-skill"), "private-skill", "1.0.0");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((message = "") => logs.push(String(message)));
+
+    await runUpdateCommand(
+      ["--yes", "--skip-deps"],
+      commandDependencies({
+        cwd,
+        installPaths: [installRoot],
+        latestPackage: fixture.latestPackage,
+      }),
+    );
+
+    expect(logs.join("\n")).toMatch(/not updateable/i);
+    expect(logs.join("\n")).toContain("private-skill");
+    expect(logs.join("\n")).not.toContain("All selected installed skills are current.");
+  });
+
+  it("installs dependencies by default for an updated runnable skill", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const logFile = join(cwd, "pm.log");
+    const binDir = join(cwd, "bin");
+    mkdirSync(binDir);
+    const npmPath = join(binDir, "npm");
+    writeFileSync(
+      npmPath,
+      '#!/usr/bin/env node\nrequire("node:fs").appendFileSync(process.env.SKILLS_PM_LOG, JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }) + "\\n");\n',
+      "utf-8",
+    );
+    chmodSync(npmPath, 0o755);
+    writeFileSync(join(cwd, "package-lock.json"), "{}\n", "utf-8");
+    vi.stubEnv("PATH", `${binDir}:${process.env.PATH ?? ""}`);
+    vi.stubEnv("SKILLS_PM_LOG", logFile);
+    writeSkill(join(installRoot, "commit"), "commit", "1.0.0");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0", withPackage: true }]);
+
+    await runUpdateCommand(
+      ["--yes"],
+      commandDependencies({
+        cwd,
+        installPaths: [installRoot],
+        latestPackage: fixture.latestPackage,
+      }),
+    );
+
+    const installs = readFileSync(logFile, "utf-8").trim().split("\n").map(JSON.parse);
+    expect(installs).toEqual([
+      {
+        args: ["install"],
+        cwd: join(installRoot, "commit", "scripts"),
+      },
+    ]);
+  });
+
   it("skips dependency installation with --skip-deps", async () => {
     const cwd = makeTempProject();
     const installRoot = join(cwd, ".agents", "skills");
@@ -376,6 +453,63 @@ describe("runUpdateCommand", () => {
     expect(lstatSync(join(agentsRoot, "commit")).isSymbolicLink()).toBe(true);
     expect(lstatSync(join(claudeRoot, "commit")).isSymbolicLink()).toBe(true);
     expect(readFileSync(join(source, "SKILL.md"), "utf-8")).toContain("version: 2.0.0");
+  });
+
+  it("shows detected global links affected by updating a narrowly selected shared source", async () => {
+    const cwd = makeTempProject();
+    const agentsRoot = join(cwd, ".agents", "skills");
+    const claudeRoot = join(cwd, ".claude", "skills");
+    const cursorRoot = join(cwd, ".cursor", "skills");
+    const source = join(agentsRoot, "commit");
+    const claudeLink = join(claudeRoot, "commit");
+    const cursorLink = join(cursorRoot, "commit");
+    writeSkill(source, "commit", "1.0.0");
+    mkdirSync(claudeRoot, { recursive: true });
+    mkdirSync(cursorRoot, { recursive: true });
+    symlinkSync(source, claudeLink);
+    symlinkSync(source, cursorLink);
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((message = "") => logs.push(String(message)));
+
+    await runUpdateCommand(
+      ["commit", "--global"],
+      commandDependencies({
+        cwd,
+        installPaths: [agentsRoot],
+        relatedInstallPaths: [agentsRoot, claudeRoot, cursorRoot],
+        interactive: true,
+        latestPackage: fixture.latestPackage,
+        confirm: async () => false,
+      }),
+    );
+
+    expect(logs.join("\n")).toContain(`${claudeLink} (affected symlink)`);
+    expect(logs.join("\n")).toContain(`${cursorLink} (affected symlink)`);
+    expect(readFileSync(join(source, "SKILL.md"), "utf-8")).toContain("version: 1.0.0");
+  });
+
+  it("shows update help without resolving targets or loading npm", async () => {
+    const cwd = makeTempProject();
+    const resolveTargets = vi.fn<UpdateCommandDependencies["resolveTargets"]>();
+    const loadLatestPackage = vi.fn<UpdateCommandDependencies["loadLatestPackage"]>();
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((message = "") => logs.push(String(message)));
+
+    await runUpdateCommand(["--help"], {
+      ...commandDependencies({
+        cwd,
+        installPaths: [],
+        latestPackage: createLatestPackage([]).latestPackage,
+      }),
+      resolveTargets,
+      loadLatestPackage,
+    });
+
+    expect(resolveTargets).not.toHaveBeenCalled();
+    expect(loadLatestPackage).not.toHaveBeenCalled();
+    expect(logs.join("\n")).toContain("--skip-deps");
+    expect(logs.join("\n")).toMatch(/npm.*latest/i);
   });
 
   it("cleans up the latest package after selection cancellation", async () => {

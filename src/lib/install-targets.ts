@@ -24,6 +24,11 @@ export interface InstallTargetResolution {
   useSymlinkMode: boolean;
 }
 
+export interface ManagementTargetResolution {
+  installPaths: string[];
+  relatedInstallPaths: string[];
+}
+
 export async function resolveInstallTargets(options: {
   cwd: string;
   flags: TargetFlags;
@@ -89,6 +94,65 @@ export async function resolveInstallTargets(options: {
   }
 
   return { installPaths: [join(options.cwd, ".agents", "skills")], useSymlinkMode: false };
+}
+
+export async function resolveManagementTargets(options: {
+  cwd: string;
+  flags: TargetFlags;
+  interactive: boolean;
+}): Promise<ManagementTargetResolution> {
+  if (!options.flags.global) {
+    const { installPaths } = await resolveInstallTargets(options);
+    return { installPaths, relatedInstallPaths: installPaths };
+  }
+
+  if (options.flags.ruler) {
+    console.error("`--global` and `--ruler` cannot be used together.");
+    process.exit(1);
+  }
+
+  const detectedGlobalTargets = detectGlobalAgentTargets();
+  if (detectedGlobalTargets.length === 0) {
+    console.error(
+      "No supported global agent directories found. Expected one of: ~/.agents, ~/.claude, ~/.cursor",
+    );
+    process.exit(1);
+  }
+
+  const relatedInstallPaths = detectedGlobalTargets.map((target) =>
+    join(homedir(), target.installDir),
+  );
+  if (!options.flags.agent || options.flags.agent.length === 0) {
+    return { installPaths: relatedInstallPaths, relatedInstallPaths };
+  }
+
+  const detectedTargetIds = new Set(detectedGlobalTargets.map((target) => target.id));
+  const installPaths = new Set<string>();
+
+  for (const agentName of options.flags.agent) {
+    const target = resolveGlobalAgentTarget(agentName);
+    if (!target) {
+      console.error(`Unsupported global agent target: ${agentName}`);
+      console.error(
+        "Supported global agent targets: agents, codex, opencode, claude, cursor, pi, hermes, openclaw",
+      );
+      process.exit(1);
+    }
+
+    if (!detectedTargetIds.has(target.id)) {
+      console.warn(`skip: ${target.id} (not detected at ~/${target.baseDir})`);
+      continue;
+    }
+
+    installPaths.add(join(homedir(), target.installDir));
+  }
+
+  if (installPaths.size === 0) {
+    console.error("None of the requested global agent targets are installed.");
+    process.exit(1);
+  }
+
+  return { installPaths: [...installPaths], relatedInstallPaths };
 }
 
 async function resolveGlobalInstallTargets(

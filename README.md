@@ -164,7 +164,8 @@ Update flags:
 
 Copied installs are updated in place. For symlinked installs, the command preserves each logical
 symlink and updates its canonical shared source only once, even when multiple agent directories
-link to it.
+link to it. A global update plan also lists detected agent links affected by a selected shared
+source, including links outside a narrowly selected `--agent agents` target.
 
 ### Removing Skills
 
@@ -195,7 +196,9 @@ Remove flags:
 - `--yes`: skip confirmation, but only when explicit skill names are present.
 
 The removal plan shows every matching logical install location. Removing a symlink location removes
-the link itself rather than following it and deleting the shared canonical source.
+the link itself rather than following it and deleting the shared canonical source. When the shared
+source itself is selected, the plan identifies it and also removes detected links backed by that
+source so the global agent roots are not left with dangling skill links.
 
 ## Skill Script Routing
 

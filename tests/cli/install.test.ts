@@ -12,7 +12,11 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveInstallTargets, type TargetFlags } from "../../src/lib/install-targets.js";
+import {
+  resolveInstallTargets,
+  resolveManagementTargets,
+  type TargetFlags,
+} from "../../src/lib/install-targets.js";
 import { runNodeCli } from "../utils/exec";
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
@@ -104,6 +108,49 @@ describe("install command", () => {
     ).resolves.toEqual({
       installPaths: [join(home, ".agents", "skills")],
       useSymlinkMode: true,
+    });
+  });
+
+  it("resolves all detected logical global roots for management without install mode", async () => {
+    const cwd = makeTempProject();
+    const home = makeTempProject();
+    mkdirSync(join(home, ".agents"), { recursive: true });
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    vi.stubEnv("HOME", home);
+
+    await expect(
+      resolveManagementTargets({
+        cwd,
+        flags: { global: true, ruler: false, yes: false },
+        interactive: true,
+      }),
+    ).resolves.toEqual({
+      installPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
+      relatedInstallPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
+    });
+
+    await expect(
+      resolveManagementTargets({
+        cwd,
+        flags: { agent: ["agents"], global: true, ruler: false, yes: false },
+        interactive: true,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(home, ".agents", "skills")],
+      relatedInstallPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
     });
   });
 
