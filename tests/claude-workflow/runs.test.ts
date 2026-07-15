@@ -48,6 +48,15 @@ describe("createRun", () => {
     expect(meta.skipPermissions).toBe(true);
     expect(meta.maxBudgetUsd).toBe(5);
   });
+
+  it("gives back-to-back same-name runs distinct dirs and never overwrites the first", () => {
+    const first = createRun("dup-name", "explore", "/tmp/proj", "FIRST PROMPT");
+    const second = createRun("dup-name", "explore", "/tmp/proj", "SECOND PROMPT");
+
+    expect(second.dir).not.toBe(first.dir);
+    expect(readFileSync(join(first.dir, "prompt.md"), "utf-8")).toBe("FIRST PROMPT");
+    expect(readFileSync(join(second.dir, "prompt.md"), "utf-8")).toBe("SECOND PROMPT");
+  });
 });
 
 describe("readMeta backfill", () => {

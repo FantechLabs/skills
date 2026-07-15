@@ -46,6 +46,35 @@ export interface CreateRunOptions {
   maxBudgetUsd?: number | null;
 }
 
+// createRun can be called twice for the same name within the same second
+// (timestampSlug is second-resolution), which would make two independent runs
+// collide on one dir name. Allocate exclusively (mkdirSync without `recursive`,
+// which throws EEXIST on a collision instead of silently reusing the dir) and
+// fall back to `-2`, `-3`, ... suffixes so an existing run's prompt.md/meta.json
+// is never overwritten.
+const MAX_RUN_DIR_ATTEMPTS = 100;
+
+function isEexist(err: unknown): boolean {
+  return err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "EEXIST";
+}
+
+function allocateRunDir(name: string): string {
+  mkdirSync(runsBaseDir(), { recursive: true });
+  const base = computeRunDir(name);
+  for (let attempt = 1; attempt <= MAX_RUN_DIR_ATTEMPTS; attempt++) {
+    const dir = attempt === 1 ? base : `${base}-${attempt}`;
+    try {
+      mkdirSync(dir);
+      return dir;
+    } catch (err) {
+      if (!isEexist(err)) throw err;
+    }
+  }
+  throw new Error(
+    `could not allocate a unique run dir for "${name}" after ${MAX_RUN_DIR_ATTEMPTS} attempts`,
+  );
+}
+
 export function createRun(
   name: string,
   mode: Mode,
@@ -53,8 +82,7 @@ export function createRun(
   composedPrompt: string,
   opts?: CreateRunOptions,
 ): { dir: string; meta: RunMeta } {
-  const dir = computeRunDir(name);
-  mkdirSync(dir, { recursive: true });
+  const dir = allocateRunDir(name);
   writeFileSync(join(dir, "prompt.md"), composedPrompt);
   const meta: RunMeta = {
     name: slugify(name),
