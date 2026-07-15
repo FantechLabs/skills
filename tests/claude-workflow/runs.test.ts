@@ -56,6 +56,12 @@ describe("isPidAlive", () => {
     expect(isPidAlive(process.pid)).toBe(true);
     expect(isPidAlive(999999999)).toBe(false);
   });
+
+  it("rejects sentinel/invalid pids without ever signaling them", () => {
+    expect(isPidAlive(-1)).toBe(false);
+    expect(isPidAlive(0)).toBe(false);
+    expect(isPidAlive(1)).toBe(false);
+  });
 });
 
 describe("finalizeIfNeeded", () => {

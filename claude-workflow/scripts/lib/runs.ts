@@ -84,6 +84,11 @@ export function listRuns(): { dir: string; meta: RunMeta }[] {
 }
 
 export function isPidAlive(pid: number): boolean {
+  // pid <= 1 is never a spawned run: 0/negative are signal-broadcast sentinels
+  // (kill(0, sig) hits the whole process group, kill(-1, sig) hits every process
+  // the caller can signal) and 1 is init, which we never own. Treat all of them
+  // as dead rather than letting a corrupt/-1 pid look "alive" forever.
+  if (pid <= 1) return false;
   try {
     process.kill(pid, 0);
     return true;

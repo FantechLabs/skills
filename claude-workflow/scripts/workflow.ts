@@ -66,7 +66,8 @@ function launch(shellCmd: string, wait: boolean): number {
     stdio: wait ? "inherit" : "ignore",
   });
   if (!wait) child.unref();
-  return child.pid ?? -1;
+  if (child.pid === undefined) fail("failed to spawn /bin/sh");
+  return child.pid;
 }
 
 function cmdStart(argv: string[]): void {
@@ -140,7 +141,10 @@ function cmdResult(argv: string[]): void {
 function cmdStop(argv: string[]): void {
   const dir = resolveRun(argv[0] ?? fail("usage: stop <run>"));
   const meta = readMeta(dir);
-  if (meta.pid !== null && isPidAlive(meta.pid)) {
+  // Defense in depth on top of isPidAlive's own pid<=1 guard: never let a corrupt
+  // pid turn into process.kill(-1, …) (broadcast SIGTERM to every signalable
+  // process) or process.kill(1, …)/process.kill(-1 * 1, …) (init / same broadcast).
+  if (meta.pid !== null && meta.pid > 1 && isPidAlive(meta.pid)) {
     try {
       process.kill(-meta.pid, "SIGTERM");
     } catch {
