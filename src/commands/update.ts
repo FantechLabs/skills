@@ -350,7 +350,13 @@ async function applyUpdatesTransactionally(options: {
     throw error;
   } finally {
     for (const update of updates) {
-      options.fileSystem.remove(update.stagingPath);
+      try {
+        options.fileSystem.remove(update.stagingPath);
+      } catch (error) {
+        console.warn(
+          `Failed to clean up staging path ${update.stagingPath}: ${formatError(error)}. Remove this retained staging directory manually.`,
+        );
+      }
     }
   }
 

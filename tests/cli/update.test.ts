@@ -740,6 +740,59 @@ describe("runUpdateCommand", () => {
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 
+  it("preserves the primary error and warns when staging cleanup also fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const installedPath = join(installRoot, "commit");
+    writeSkill(installedPath, "commit", "1.0.0", "original\n");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
+    const realFileSystem = realUpdateFileSystem();
+    let primaryFailed = false;
+    let retainedStaging = "";
+    const fileSystem = {
+      ...realFileSystem,
+      remove(path: string): void {
+        if (primaryFailed && path.includes(".commit.staging-")) {
+          retainedStaging = path;
+          throw new Error("injected staging cleanup failure");
+        }
+        realFileSystem.remove(path);
+      },
+      rename(sourcePath: string, destinationPath: string): void {
+        if (sourcePath.includes(".commit.staging-") && destinationPath === installedPath) {
+          primaryFailed = true;
+          throw new Error("injected primary swap failure");
+        }
+        realFileSystem.rename(sourcePath, destinationPath);
+      },
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let caught: unknown;
+
+    try {
+      await runUpdateCommand(
+        ["--yes", "--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+          fileSystem,
+        }),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe("injected primary swap failure");
+    expect(retainedStaging).not.toBe("");
+    expect(existsSync(retainedStaging)).toBe(true);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(retainedStaging));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("injected staging cleanup failure"));
+    expect(readFileSync(join(installedPath, "SKILL.md"), "utf-8")).toContain("version: 1.0.0");
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
   it("keeps the committed update and warns with a retained backup when cleanup fails", async () => {
     const cwd = makeTempProject();
     const installRoot = join(cwd, ".agents", "skills");
