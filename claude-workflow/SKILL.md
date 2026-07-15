@@ -18,7 +18,9 @@ mode-appropriate permissions, and background process management.
 ## Quick start
 
 ```bash
-SCRIPTS="$(dirname "$0")/scripts"   # or the absolute path to this skill's scripts/
+# Set this to the scripts/ dir of this skill — you know its location because
+# you just read this SKILL.md file; scripts/ sits next to it.
+SCRIPTS=/path/to/claude-workflow/scripts
 
 # 1. Write the task prompt to a file (markdown).
 cat > /tmp/task.md <<'EOF'
@@ -89,6 +91,9 @@ verbatim after a separator, and on any conflict YOUR instructions win. Include:
 | `list` | Recent runs |
 
 `<run>` is the printed run directory or a unique fragment of its name.
+
+A run terminated via `stop` subsequently reports `failed` from `status` and
+`result` — there is no separate "stopped" state.
 
 ## Run artifacts
 

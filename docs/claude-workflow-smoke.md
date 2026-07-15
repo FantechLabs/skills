@@ -4,7 +4,7 @@ One real explore run to verify the launcher end-to-end. Costs real tokens; run
 against a small repo.
 
 ```bash
-cd /Users/uzee/sources/fantech/skills
+cd <your checkout of the fantechlabs skills repo>
 cat > /tmp/cw-smoke.md <<'EOF'
 Give a one-paragraph overview of this repository's structure and list its
 skills. Use a small workflow (2-3 agents max).
