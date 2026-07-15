@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runRemoveCommand, type RemoveCommandDependencies } from "../../src/commands/remove.js";
-import type { InstallTargetResolution, TargetFlags } from "../../src/lib/install-targets.js";
+import type { ManagementTargetResolution, TargetFlags } from "../../src/lib/install-targets.js";
 import type { InstalledSkill } from "../../src/lib/installed-skills.js";
 import { planSkillRemovals } from "../../src/lib/skill-removals.js";
 import { cleanupTempProject, createTempProject } from "../utils/fs.js";
@@ -77,10 +77,9 @@ function commandDependencies(options: {
     isInteractive: () => options.interactive ?? false,
     resolveTargets:
       options.resolveTargets ??
-      (async (): Promise<InstallTargetResolution> => ({
+      (async (): Promise<ManagementTargetResolution> => ({
         installPaths: options.installPaths,
         relatedInstallPaths: options.relatedInstallPaths ?? options.installPaths,
-        useSymlinkMode: false,
       })),
     selectPlans: options.selectPlans ?? (async () => []),
   };
@@ -269,7 +268,7 @@ describe("runRemoveCommand", () => {
           cwd: string;
           flags: TargetFlags;
           interactive: boolean;
-        }) => Promise<InstallTargetResolution>
+        }) => Promise<ManagementTargetResolution>
       >();
 
     await expect(
@@ -299,7 +298,7 @@ describe("runRemoveCommand", () => {
         installPaths: [claudeRoot],
         resolveTargets: async ({ flags }) => {
           resolvedFlags = flags;
-          return { installPaths: [claudeRoot], useSymlinkMode: false };
+          return { installPaths: [claudeRoot], relatedInstallPaths: [claudeRoot] };
         },
       }),
     );
