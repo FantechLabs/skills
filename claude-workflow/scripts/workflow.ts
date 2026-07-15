@@ -9,8 +9,10 @@ import { pathToFileURL } from "node:url";
 import { buildClaudeArgs } from "./lib/modes.js";
 import { composePrompt, type Mode } from "./lib/prompt.js";
 import {
+  computeRunDir,
   createRun,
   finalizeIfNeeded,
+  finalizeStopped,
   isPidAlive,
   listRuns,
   readMeta,
@@ -88,14 +90,18 @@ function cmdStart(argv: string[]): void {
   const name = values.name ?? (values.prompt ?? "run").split("/").pop()!.replace(/\.md$/, "");
 
   const composed = composePrompt(callerPrompt, mode);
-  const { dir, meta } = createRun(name, mode, cwd, composed);
-  const shellCmd = buildShellCommand(buildClaudeArgs(mode), dir, cwd);
 
   if (values["dry-run"]) {
-    console.log(shellCmd);
+    // Compose against the would-be dir without creating it — a dry-run must not
+    // leave a run dir behind (it would later list as a crashed run).
+    const dir = computeRunDir(name);
+    console.log(buildShellCommand(buildClaudeArgs(mode), dir, cwd));
     return;
   }
+
   ensureClaudeOnPath();
+  const { dir, meta } = createRun(name, mode, cwd, composed);
+  const shellCmd = buildShellCommand(buildClaudeArgs(mode), dir, cwd);
 
   if (values.wait) {
     console.log(`run: ${dir} (foreground)`);
@@ -151,8 +157,7 @@ function cmdStop(argv: string[]): void {
       process.kill(meta.pid, "SIGTERM");
     }
   }
-  meta.state = "failed";
-  writeMeta(dir, meta);
+  finalizeStopped(dir);
   console.log(`stopped ${dir}`);
 }
 

@@ -31,13 +31,21 @@ function slugify(name: string): string {
     .slice(0, 40);
 }
 
+// Computes the run directory path a `createRun` call with this name would use,
+// without creating anything. Used by --dry-run so it can compose the shell command
+// against the would-be dir without littering the runs directory with a dir that
+// never launches (and would later list as "crashed").
+export function computeRunDir(name: string): string {
+  return join(runsBaseDir(), `${timestampSlug(new Date())}-${slugify(name)}`);
+}
+
 export function createRun(
   name: string,
   mode: Mode,
   cwd: string,
   composedPrompt: string,
 ): { dir: string; meta: RunMeta } {
-  const dir = join(runsBaseDir(), `${timestampSlug(new Date())}-${slugify(name)}`);
+  const dir = computeRunDir(name);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "prompt.md"), composedPrompt);
   const meta: RunMeta = {
@@ -97,25 +105,47 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-export function finalizeIfNeeded(dir: string): RunMeta {
-  const meta = readMeta(dir);
-  if (meta.state !== "running") return meta;
-  if (meta.pid !== null && isPidAlive(meta.pid)) return meta;
-
-  // generation 0 = the original run (log.jsonl/result.md); resumes use -<n> suffixes
+// Reads the current generation's log (generation 0 = log.jsonl/result.md, resumes
+// use -<n> suffixes), extracts whatever result/session-id is available, writes the
+// result file and session-id file, and persists the given final state. Shared by
+// finalizeIfNeeded (natural completion/crash) and finalizeStopped (caller-initiated).
+function finalizeFromLog(
+  dir: string,
+  meta: RunMeta,
+  fallbackText: string,
+  computeState: (result: ReturnType<typeof extractResult>) => RunMeta["state"],
+): RunMeta {
   const suffix = meta.resumeCount > 0 ? `-${meta.resumeCount}` : "";
   const logPath = join(dir, `log${suffix}.jsonl`);
   const log = existsSync(logPath) ? readFileSync(logPath, "utf-8") : "";
   const result = extractResult(log);
 
   if (result.sessionId) writeFileSync(join(dir, "session-id"), `${result.sessionId}\n`);
-  writeFileSync(
-    join(dir, `result${suffix}.md`),
-    result.found
-      ? result.text
-      : "Run crashed before producing a result. See the log and stderr files.",
-  );
-  meta.state = result.found && !result.isError ? "completed" : "failed";
+  writeFileSync(join(dir, `result${suffix}.md`), result.found ? result.text : fallbackText);
+  meta.state = computeState(result);
   writeMeta(dir, meta);
   return meta;
+}
+
+export function finalizeIfNeeded(dir: string): RunMeta {
+  const meta = readMeta(dir);
+  if (meta.state !== "running") return meta;
+  if (meta.pid !== null && isPidAlive(meta.pid)) return meta;
+
+  return finalizeFromLog(
+    dir,
+    meta,
+    "Run crashed before producing a result. See the log and stderr files.",
+    (result) => (result.found && !result.isError ? "completed" : "failed"),
+  );
+}
+
+// Finalizes a run that the caller explicitly stopped: unlike finalizeIfNeeded, this
+// does not check pid liveness (the caller just sent SIGTERM and may race the OS) and
+// always lands in "failed" state. If the log already captured a real result (the
+// process finished right as stop was issued), that result is preserved; otherwise a
+// stopped-message placeholder is written so `result` never throws on a missing file.
+export function finalizeStopped(dir: string): RunMeta {
+  const meta = readMeta(dir);
+  return finalizeFromLog(dir, meta, "Run stopped by caller.", () => "failed");
 }

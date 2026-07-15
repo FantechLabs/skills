@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createRun,
   finalizeIfNeeded,
+  finalizeStopped,
   isPidAlive,
   listRuns,
   readMeta,
@@ -113,5 +114,40 @@ describe("finalizeIfNeeded", () => {
     meta.pid = process.pid;
     writeMeta(dir, meta);
     expect(finalizeIfNeeded(dir).state).toBe("running");
+  });
+});
+
+describe("finalizeStopped", () => {
+  it("writes a stopped-message result and preserves the session id from an init-only log", () => {
+    const { dir, meta } = createRun("stopped-run", "explore", "/x", "p");
+    writeFileSync(
+      join(dir, "log.jsonl"),
+      JSON.stringify({ type: "system", subtype: "init", session_id: "s3" }),
+    );
+    meta.pid = process.pid; // still "alive" — stop must finalize regardless
+    writeMeta(dir, meta);
+
+    const finalized = finalizeStopped(dir);
+
+    expect(finalized.state).toBe("failed");
+    expect(readFileSync(join(dir, "result.md"), "utf-8")).toBe("Run stopped by caller.");
+    expect(readFileSync(join(dir, "session-id"), "utf-8").trim()).toBe("s3");
+    // resumable: state is not "running" and session-id exists
+    expect(readMeta(dir).state).toBe("failed");
+  });
+
+  it("finalizes stopped resumed runs from the generation log", () => {
+    const { dir, meta } = createRun("stopped-resume", "explore", "/x", "p");
+    writeFileSync(
+      join(dir, "log-1.jsonl"),
+      JSON.stringify({ type: "system", subtype: "init", session_id: "s4" }),
+    );
+    meta.resumeCount = 1;
+    writeMeta(dir, meta);
+
+    finalizeStopped(dir);
+
+    expect(readFileSync(join(dir, "result-1.md"), "utf-8")).toBe("Run stopped by caller.");
+    expect(readFileSync(join(dir, "session-id"), "utf-8").trim()).toBe("s4");
   });
 });
