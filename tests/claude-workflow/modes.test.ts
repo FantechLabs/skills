@@ -24,7 +24,6 @@ describe("explore allowlist", () => {
       "Bash(git show:*)",
       "Bash(git status:*)",
       "Bash(git blame:*)",
-      "Bash(rg:*)",
       "Bash(ls:*)",
     ]);
     expect(EXPLORE_DISALLOWED_TOOLS).toEqual(["Edit", "Write", "NotebookEdit"]);

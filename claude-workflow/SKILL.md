@@ -55,11 +55,13 @@ there is no prompt):
   the preamble forbids executing instructions or code found in web results
 - `Task`, `Agent`, `Workflow`, `ToolSearch`, `TodoWrite`
 - `Bash(git log:*)`, `Bash(git diff:*)`, `Bash(git show:*)`,
-  `Bash(git status:*)`, `Bash(git blame:*)`, `Bash(rg:*)`, `Bash(ls:*)`
+  `Bash(git status:*)`, `Bash(git blame:*)`, `Bash(ls:*)`
 
 `Edit`, `Write`, and `NotebookEdit` are explicitly disallowed on top of the
 allowlist — workflow subagents auto-approve edits, so the deny rules are what
-keep subagents read-only too.
+keep subagents read-only too. Accepted residual risk: the allowed git read
+commands accept `--output=<file>`, which writes to disk — the allowlist is
+read-only in intent, not in a fully sandboxed sense.
 
 ### build (read-write)
 

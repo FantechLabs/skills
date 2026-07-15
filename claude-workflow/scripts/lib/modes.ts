@@ -16,7 +16,6 @@ export const EXPLORE_ALLOWED_TOOLS: readonly string[] = [
   "Bash(git show:*)",
   "Bash(git status:*)",
   "Bash(git blame:*)",
-  "Bash(rg:*)",
   "Bash(ls:*)",
 ];
 
