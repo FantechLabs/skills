@@ -1,9 +1,17 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { create as createTar } from "tar";
+import { create as createTar, Header } from "tar";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { loadLatestSkillPackage } from "../../src/lib/npm-skills";
@@ -59,6 +67,48 @@ async function makeTarballFixture(
     bytes,
     integrity: `${algorithm}-${createHash(algorithm).update(bytes).digest("base64")}`,
   };
+}
+
+async function makeTarballWithLinks(): Promise<TarballFixture> {
+  const bytes = Buffer.concat([
+    tarEntry("package/commit/", "Directory"),
+    tarEntry(
+      "package/commit/SKILL.md",
+      "File",
+      "---\nname: commit\nversion: 2.0.0\ndescription: Commit\n---\n",
+    ),
+    tarEntry("package/commit/regular.txt", "File", "safe regular file\n"),
+    tarEntry("package/commit/symbolic-link.txt", "SymbolicLink", "", "../../../outside-secret.txt"),
+    tarEntry("package/commit/hard-link.txt", "Link", "", "package/commit/regular.txt"),
+    Buffer.alloc(1024),
+  ]);
+  return {
+    bytes,
+    integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
+  };
+}
+
+function tarEntry(
+  path: string,
+  type: "Directory" | "File" | "Link" | "SymbolicLink",
+  content = "",
+  linkpath?: string,
+): Buffer {
+  const body = Buffer.from(content);
+  const header = new Header({
+    gid: 0,
+    linkpath,
+    mode: type === "Directory" ? 0o755 : 0o644,
+    mtime: new Date(0),
+    path,
+    size: type === "File" ? body.length : 0,
+    type,
+    uid: 0,
+  });
+  const headerBlock = Buffer.alloc(512);
+  header.encode(headerBlock);
+  const padding = Buffer.alloc((512 - (body.length % 512)) % 512);
+  return Buffer.concat([headerBlock, body, padding]);
 }
 
 function metadata(integrity: string): Record<string, unknown> {
@@ -174,6 +224,24 @@ describe("loadLatestSkillPackage", () => {
       expect(existsSync(loaded.packageRoot)).toBe(false);
     },
   );
+
+  it("skips symbolic and hard link entries while extracting regular skill files", async () => {
+    const fixture = await makeTarballWithLinks();
+    const loaded = await loadLatestSkillPackage({
+      fetchImpl: fetchFor(metadata(fixture.integrity), fixture.bytes),
+      registryUrl: REGISTRY_URL,
+    });
+
+    try {
+      const skillRoot = join(loaded.packageRoot, "commit");
+      expect(loaded.skills.map((skill) => skill.name)).toEqual(["commit"]);
+      expect(readFileSync(join(skillRoot, "regular.txt"), "utf-8")).toBe("safe regular file\n");
+      expect(readdirSync(skillRoot).sort()).toEqual(["SKILL.md", "regular.txt"]);
+      expect(lstatSync(skillRoot).isDirectory()).toBe(true);
+    } finally {
+      loaded.cleanup();
+    }
+  });
 
   it("uses npm_config_registry when no registry URL is provided", async () => {
     const fixture = await makeTarballFixture();

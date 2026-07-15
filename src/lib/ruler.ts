@@ -50,6 +50,8 @@ export async function applyRulerAfterChanges(
           } else {
             console.warn(`Failed to run \`ruler apply\`: ${result.error.message}`);
           }
+        } else if (result.status === null && result.signal) {
+          console.warn(`\`ruler apply\` was terminated by signal ${result.signal}.`);
         } else if (typeof result.status === "number" && result.status !== 0) {
           console.warn(`\`ruler apply\` exited with code ${result.status}.`);
         }

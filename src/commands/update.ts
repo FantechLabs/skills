@@ -1,3 +1,5 @@
+import { existsSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import { parseArgs } from "node:util";
 
 import * as p from "@clack/prompts";
@@ -29,7 +31,21 @@ interface UpdateSelectionOption {
   value: string;
 }
 
+interface RulerApplyOptions {
+  installPaths: string[];
+  interactive: boolean;
+  yes: boolean;
+}
+
+interface StagedSkillUpdate {
+  backupPath: string;
+  destinationPath: string;
+  name: string;
+  stagingPath: string;
+}
+
 export interface UpdateCommandDependencies {
+  applyRuler(options: RulerApplyOptions): Promise<void>;
   confirm(message: string): Promise<boolean | null>;
   cwd(): string;
   isInteractive(): boolean;
@@ -43,6 +59,7 @@ export interface UpdateCommandDependencies {
 }
 
 const defaultDependencies: UpdateCommandDependencies = {
+  applyRuler: applyRulerAfterChanges,
   confirm: async (message) => {
     const answer = await p.confirm({ message });
     return p.isCancel(answer) ? null : answer;
@@ -151,18 +168,12 @@ export async function runUpdateCommand(
       }
     }
 
-    for (const plan of plans) {
-      for (const updatePath of plan.updatePaths) {
-        copySkill(plan.latest.path, updatePath);
-        console.log(`  ✓ ${plan.name} -> ${updatePath}`);
-      }
-    }
-
-    if (!flags["skip-deps"]) {
-      installUpdatedDependencies(plans, cwd);
-    }
-
-    await applyRulerAfterChanges({ installPaths, interactive, yes: flags.yes });
+    await applyUpdatesTransactionally({
+      applyRuler: () => dependencies.applyRuler({ installPaths, interactive, yes: flags.yes }),
+      cwd,
+      installDependencies: !flags["skip-deps"],
+      plans,
+    });
     console.log(`\nUpdated ${plans.length} skill(s).`);
   } finally {
     latestPackage.cleanup();
@@ -247,14 +258,85 @@ Safety:
 `);
 }
 
-function installUpdatedDependencies(plans: SkillUpdatePlan[], cwd: string): void {
-  const packageDirs = [
-    ...new Set(
-      plans.flatMap((plan) =>
-        plan.updatePaths.flatMap((updatePath) => findSkillPackageDirs(updatePath)),
-      ),
-    ),
-  ].sort();
+async function applyUpdatesTransactionally(options: {
+  applyRuler(): Promise<void>;
+  cwd: string;
+  installDependencies: boolean;
+  plans: SkillUpdatePlan[];
+}): Promise<void> {
+  const updates: StagedSkillUpdate[] = [];
+
+  try {
+    for (const plan of options.plans) {
+      for (const destinationPath of plan.updatePaths) {
+        const stagingPath = createUniqueSiblingPath(destinationPath, "staging");
+        const backupPath = createUniqueSiblingPath(destinationPath, "backup");
+        updates.push({ backupPath, destinationPath, name: plan.name, stagingPath });
+        copySkill(plan.latest.path, stagingPath);
+      }
+    }
+
+    if (options.installDependencies) {
+      installUpdatedDependencies(updates, options.cwd);
+    }
+
+    for (const update of updates) {
+      renameSync(update.destinationPath, update.backupPath);
+      renameSync(update.stagingPath, update.destinationPath);
+      console.log(`  ✓ ${update.name} -> ${update.destinationPath}`);
+    }
+
+    await options.applyRuler();
+
+    for (const update of updates) {
+      rmSync(update.backupPath, { recursive: true, force: true });
+    }
+  } catch (error) {
+    const rollbackErrors: unknown[] = [];
+    for (const update of [...updates].reverse()) {
+      if (!existsSync(update.backupPath)) {
+        continue;
+      }
+
+      try {
+        rmSync(update.destinationPath, { recursive: true, force: true });
+        renameSync(update.backupPath, update.destinationPath);
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+
+    if (rollbackErrors.length > 0) {
+      throw new Error(
+        "Skill update failed and one or more original directories could not be restored.",
+        { cause: error },
+      );
+    }
+    throw error;
+  } finally {
+    for (const update of updates) {
+      rmSync(update.stagingPath, { recursive: true, force: true });
+    }
+  }
+}
+
+function createUniqueSiblingPath(destinationPath: string, purpose: string): string {
+  const siblingPath = mkdtempSync(
+    join(dirname(destinationPath), `.${basename(destinationPath)}.${purpose}-`),
+  );
+  rmSync(siblingPath, { recursive: true });
+  return siblingPath;
+}
+
+function installUpdatedDependencies(updates: StagedSkillUpdate[], cwd: string): void {
+  const packageDirs = updates
+    .flatMap((update) =>
+      findSkillPackageDirs(update.stagingPath).map((packageDir) => ({
+        displayPath: join(update.destinationPath, relative(update.stagingPath, packageDir)),
+        packageDir,
+      })),
+    )
+    .sort((left, right) => left.displayPath.localeCompare(right.displayPath));
 
   if (packageDirs.length === 0) {
     return;
@@ -265,8 +347,8 @@ function installUpdatedDependencies(plans: SkillUpdatePlan[], cwd: string): void
     `\nInstalling dependencies with ${manager} for ${packageDirs.length} skill package(s)...`,
   );
 
-  for (const packageDir of packageDirs) {
-    console.log(`  ↳ ${packageDir}`);
+  for (const { displayPath, packageDir } of packageDirs) {
+    console.log(`  ↳ ${displayPath}`);
     installPackageDependencies(manager, packageDir);
   }
 }

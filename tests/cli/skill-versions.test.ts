@@ -19,13 +19,16 @@ describe("skill versions", () => {
 
   it("rejects a bundled skill with missing version metadata", () => {
     const root = createTempProject();
-    mkdirSync(join(root, "example"));
-    writeFileSync(
-      join(root, "example", "SKILL.md"),
-      "---\nname: example\ndescription: Example\n---\n",
-    );
-    expect(() => discoverBundledSkills(root)).toThrow(/missing version/i);
-    cleanupTempProject(root);
+    try {
+      mkdirSync(join(root, "example"));
+      writeFileSync(
+        join(root, "example", "SKILL.md"),
+        "---\nname: example\ndescription: Example\n---\n",
+      );
+      expect(() => discoverBundledSkills(root)).toThrow(/missing version/i);
+    } finally {
+      cleanupTempProject(root);
+    }
   });
 
   it("orders stable semantic versions numerically", () => {

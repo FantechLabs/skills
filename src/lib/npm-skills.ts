@@ -78,6 +78,8 @@ export async function loadLatestSkillPackage(
     await extractTar({
       cwd: packageRoot,
       file: tarballPath,
+      filter: (_path, entry) =>
+        !("type" in entry) || (entry.type !== "SymbolicLink" && entry.type !== "Link"),
       preservePaths: false,
       strip: 1,
     });

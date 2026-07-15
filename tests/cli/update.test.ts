@@ -4,11 +4,13 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -113,6 +115,7 @@ function commandDependencies(options: {
   latestPackage: LatestSkillPackage;
   selectPlans?: UpdateCommandDependencies["selectPlans"];
   confirm?: UpdateCommandDependencies["confirm"];
+  applyRuler?: UpdateCommandDependencies["applyRuler"];
 }): UpdateCommandDependencies {
   return {
     cwd: () => options.cwd,
@@ -125,6 +128,7 @@ function commandDependencies(options: {
     }),
     selectPlans: options.selectPlans ?? (async () => []),
     confirm: options.confirm ?? (async () => true),
+    applyRuler: options.applyRuler ?? (async () => undefined),
   };
 }
 
@@ -391,12 +395,12 @@ describe("runUpdateCommand", () => {
     );
 
     const installs = readFileSync(logFile, "utf-8").trim().split("\n").map(JSON.parse);
-    expect(installs).toEqual([
-      {
-        args: ["install"],
-        cwd: join(installRoot, "commit", "scripts"),
-      },
-    ]);
+    expect(installs).toHaveLength(1);
+    expect(installs[0].args).toEqual(["install"]);
+    expect(basename(installs[0].cwd)).toBe("scripts");
+    expect(basename(dirname(installs[0].cwd))).toMatch(/^\.commit\.staging-/);
+    expect(installs[0].cwd).not.toBe(join(installRoot, "commit", "scripts"));
+    expect(existsSync(join(installRoot, "commit", "scripts", "package.json"))).toBe(true);
   });
 
   it("skips dependency installation with --skip-deps", async () => {
@@ -560,10 +564,13 @@ describe("runUpdateCommand", () => {
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 
-  it("cleans up the latest package after an apply failure", async () => {
+  it("preserves the original and cleans staging after a copy failure", async () => {
     const cwd = makeTempProject();
     const installRoot = join(cwd, ".agents", "skills");
-    writeSkill(join(installRoot, "commit"), "commit", "1.0.0");
+    const installedPath = join(installRoot, "commit");
+    writeSkill(installedPath, "commit", "1.0.0");
+    const originalInode = statSync(installedPath).ino;
+    const originalSkill = readFileSync(join(installedPath, "SKILL.md"), "utf-8");
     const fixture = createLatestPackage([{ name: "commit", version: "2.0.0" }]);
     fixture.latestPackage.skills[0].path = join(cwd, "missing-latest-skill");
 
@@ -577,6 +584,91 @@ describe("runUpdateCommand", () => {
         }),
       ),
     ).rejects.toThrow();
+    expect(statSync(installedPath).ino).toBe(originalInode);
+    expect(readFileSync(join(installedPath, "SKILL.md"), "utf-8")).toBe(originalSkill);
+    expect(readdirSync(installRoot)).toEqual(["commit"]);
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("preserves the original and cleans staging after dependency installation fails", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const installedPath = join(installRoot, "commit");
+    const binDir = join(cwd, "bin");
+    mkdirSync(binDir);
+    const npmPath = join(binDir, "npm");
+    writeFileSync(npmPath, "#!/usr/bin/env node\nprocess.exit(7);\n", "utf-8");
+    chmodSync(npmPath, 0o755);
+    writeFileSync(join(cwd, "package-lock.json"), "{}\n", "utf-8");
+    vi.stubEnv("PATH", `${binDir}:${process.env.PATH ?? ""}`);
+    writeSkill(installedPath, "commit", "1.0.0", "original\n");
+    const originalInode = statSync(installedPath).ino;
+    const originalSkill = readFileSync(join(installedPath, "SKILL.md"), "utf-8");
+    const fixture = createLatestPackage([{ name: "commit", version: "2.0.0", withPackage: true }]);
+
+    await expect(
+      runUpdateCommand(
+        ["--yes"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+        }),
+      ),
+    ).rejects.toThrow("npm install failed");
+
+    expect(statSync(installedPath).ino).toBe(originalInode);
+    expect(readFileSync(join(installedPath, "SKILL.md"), "utf-8")).toBe(originalSkill);
+    expect(readdirSync(installRoot)).toEqual(["commit"]);
+    expect(fixture.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("restores every original directory when Ruler apply fails after live swaps", async () => {
+    const cwd = makeTempProject();
+    const installRoot = join(cwd, ".agents", "skills");
+    const commitPath = join(installRoot, "commit");
+    const reviewPath = join(installRoot, "review");
+    writeSkill(commitPath, "commit", "1.0.0", "original commit\n");
+    writeSkill(reviewPath, "review", "1.0.0", "original review\n");
+    writeFileSync(join(commitPath, "identity.txt"), "commit identity\n", "utf-8");
+    writeFileSync(join(reviewPath, "identity.txt"), "review identity\n", "utf-8");
+    chmodSync(commitPath, 0o750);
+    chmodSync(reviewPath, 0o751);
+    const originals = [commitPath, reviewPath].map((path) => ({
+      path,
+      inode: statSync(path).ino,
+      mode: statSync(path).mode,
+      skill: readFileSync(join(path, "SKILL.md"), "utf-8"),
+      identity: readFileSync(join(path, "identity.txt"), "utf-8"),
+    }));
+    const fixture = createLatestPackage([
+      { name: "commit", version: "2.0.0" },
+      { name: "review", version: "2.0.0" },
+    ]);
+    const applyRuler = vi.fn<UpdateCommandDependencies["applyRuler"]>(async () => {
+      throw new Error("injected Ruler failure");
+    });
+
+    await expect(
+      runUpdateCommand(
+        ["--yes", "--skip-deps"],
+        commandDependencies({
+          cwd,
+          installPaths: [installRoot],
+          latestPackage: fixture.latestPackage,
+          applyRuler,
+        }),
+      ),
+    ).rejects.toThrow("injected Ruler failure");
+
+    expect(applyRuler).toHaveBeenCalledOnce();
+    for (const original of originals) {
+      expect(statSync(original.path).ino).toBe(original.inode);
+      expect(statSync(original.path).mode).toBe(original.mode);
+      expect(readFileSync(join(original.path, "SKILL.md"), "utf-8")).toBe(original.skill);
+      expect(readFileSync(join(original.path, "identity.txt"), "utf-8")).toBe(original.identity);
+    }
+    expect(readdirSync(installRoot).sort()).toEqual(["commit", "review"]);
     expect(fixture.cleanup).toHaveBeenCalledOnce();
   });
 

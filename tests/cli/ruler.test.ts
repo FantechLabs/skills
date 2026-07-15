@@ -59,4 +59,24 @@ describe("applyRulerAfterChanges", () => {
       stdio: "inherit",
     });
   });
+
+  it("warns when automatic ruler apply is terminated by a signal", async () => {
+    vi.mocked(p.confirm).mockResolvedValue(true);
+    const spawnSyncImpl = vi.fn(() => ({ error: undefined, signal: "SIGTERM", status: null }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await applyRulerAfterChanges(
+      {
+        installPaths: ["/project/.ruler/skills"],
+        interactive: true,
+        yes: false,
+      },
+      {
+        platform: "linux",
+        spawnSync: spawnSyncImpl as unknown as typeof spawnSync,
+      },
+    );
+
+    expect(warn).toHaveBeenCalledWith("`ruler apply` was terminated by signal SIGTERM.");
+  });
 });
