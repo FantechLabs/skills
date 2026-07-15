@@ -90,11 +90,15 @@ describe("list command", () => {
       const summaryIndex = outputLines.findIndex((line) =>
         line.trimStart().startsWith(`${skill.name} `),
       );
-      const descriptionLine = outputLines[summaryIndex + 1];
-      const descriptionPayload = descriptionLine.trim();
 
       expect(summaryIndex).toBeGreaterThanOrEqual(0);
+
+      const descriptionLine = outputLines[summaryIndex + 1];
+      const descriptionPayload = descriptionLine.trim();
+      const expectedPayload = skill.description ? formatSkillDescription(skill.description) : "";
+
       expect(descriptionLine).not.toMatch(/[\r\n]/);
+      expect(descriptionPayload).toBe(expectedPayload);
       expect(descriptionPayload.length).toBeLessThanOrEqual(60);
     }
   });

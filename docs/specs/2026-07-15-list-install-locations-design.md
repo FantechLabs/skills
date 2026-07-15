@@ -26,10 +26,10 @@ For example:
 ```text
 commit         installed · runnable
                Create conventional commits with repository-aware scopes…
-               Global · Codex, OpenCode, Pi, Hermes, OpenClaw
-                        ~/.agents/skills/commit
                Local  · Claude Code
                         .claude/skills/commit
+               Global · Codex, OpenCode, Pi, Hermes, OpenClaw
+                        ~/.agents/skills/commit
 ```
 
 `not installed` is shown only when no local or global location contains that
