@@ -332,7 +332,9 @@ describe("runRemoveCommand", () => {
     const installRoot = join(cwd, ".ruler", "skills");
     const installedSkill = join(installRoot, "commit");
     writeSkill(installedSkill, "commit");
-    const applyRuler = vi.fn<RemoveCommandDependencies["applyRuler"]>();
+    const applyRuler = vi.fn<RemoveCommandDependencies["applyRuler"]>(async () => {
+      expect(existsSync(installedSkill)).toBe(false);
+    });
 
     await runRemoveCommand(
       ["commit", "--yes", "--ruler"],
