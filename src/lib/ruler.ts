@@ -3,6 +3,11 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import * as p from "@clack/prompts";
 
+export interface RulerDependencies {
+  platform?: NodeJS.Platform;
+  spawnSync?: typeof spawnSync;
+}
+
 export function isRulerProject(cwd: string): boolean {
   return existsSync(join(cwd, ".ruler", "ruler.toml"));
 }
@@ -11,11 +16,14 @@ export function getRulerSkillsDir(cwd: string): string {
   return join(cwd, ".ruler", "skills");
 }
 
-export async function applyRulerAfterChanges(options: {
-  installPaths: string[];
-  interactive: boolean;
-  yes: boolean;
-}): Promise<void> {
+export async function applyRulerAfterChanges(
+  options: {
+    installPaths: string[];
+    interactive: boolean;
+    yes: boolean;
+  },
+  dependencies: RulerDependencies = {},
+): Promise<void> {
   const usedRulerInstall = options.installPaths.some((path) =>
     path.replace(/\\/g, "/").includes("/.ruler/skills"),
   );
@@ -29,7 +37,12 @@ export async function applyRulerAfterChanges(options: {
       if (p.isCancel(shouldApply)) {
         p.cancel("Skipped `ruler apply`.");
       } else if (shouldApply) {
-        const result = spawnSync("ruler", ["apply"], { stdio: "inherit" });
+        const spawnSyncImpl = dependencies.spawnSync ?? spawnSync;
+        const platform = dependencies.platform ?? process.platform;
+        const result = spawnSyncImpl("ruler", ["apply"], {
+          shell: platform === "win32",
+          stdio: "inherit",
+        });
         if (result.error) {
           const code = (result.error as NodeJS.ErrnoException).code;
           if (code === "ENOENT") {

@@ -30,6 +30,7 @@ export interface LatestSkillPackage {
 export interface LoadLatestSkillPackageOptions {
   fetchImpl?: typeof fetch;
   registryUrl?: string;
+  timeoutSignal?: (milliseconds: number) => AbortSignal;
 }
 
 export async function loadLatestSkillPackage(
@@ -44,8 +45,9 @@ export async function loadLatestSkillPackage(
       process.env.npm_config_registry ??
       DEFAULT_REGISTRY_URL
     ).replace(/\/+$/, "");
+    const timeoutSignal = options.timeoutSignal ?? AbortSignal.timeout;
     const metadataUrl = `${registryUrl}/${encodeURIComponent(PACKAGE_NAME)}/latest`;
-    const metadataResponse = await fetchImpl(metadataUrl);
+    const metadataResponse = await fetchImpl(metadataUrl, { signal: timeoutSignal(15_000) });
 
     if (!metadataResponse.ok) {
       throw new Error(`npm metadata request failed with HTTP ${metadataResponse.status}`);
@@ -59,7 +61,9 @@ export async function loadLatestSkillPackage(
     }
 
     const metadata = validatePackageMetadata(metadataBody);
-    const tarballResponse = await fetchImpl(metadata.dist.tarball);
+    const tarballResponse = await fetchImpl(metadata.dist.tarball, {
+      signal: timeoutSignal(60_000),
+    });
     if (!tarballResponse.ok) {
       throw new Error(`npm tarball request failed with HTTP ${tarballResponse.status}`);
     }

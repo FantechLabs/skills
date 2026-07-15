@@ -23,10 +23,11 @@ description: Create git commits following conventional commits.
 ---
 ```
 
-`discoverBundledSkills` will expose the version and reject missing or invalid
-versions where versioned behavior requires them. Existing installed skills with
-no version are legacy installations. They remain discoverable and are considered
-older than any valid published version.
+`discoverBundledSkills` will expose the version and unconditionally reject every
+bundled skill with a missing or invalid version. Version metadata remains optional
+only when inventorying existing installed skills: installations with no version
+are legacy installations that remain discoverable and are considered older than
+any valid published version.
 
 All existing bundled skills start at `1.0.0`. Independent skill versions do not
 need to match the npm package version.

@@ -88,6 +88,63 @@ function stagingDirectories(): string[] {
 }
 
 describe("loadLatestSkillPackage", () => {
+  it("uses independent 15-second metadata and 60-second tarball request signals", async () => {
+    const fixture = await makeTarballFixture();
+    const metadataSignal = new AbortController().signal;
+    const tarballSignal = new AbortController().signal;
+    const timeoutSignal = vi
+      .fn<(milliseconds: number) => AbortSignal>()
+      .mockReturnValueOnce(metadataSignal)
+      .mockReturnValueOnce(tarballSignal);
+    const fetchImpl = fetchFor(metadata(fixture.integrity), fixture.bytes);
+
+    const loaded = await loadLatestSkillPackage({
+      fetchImpl,
+      registryUrl: REGISTRY_URL,
+      timeoutSignal,
+    });
+
+    try {
+      expect(timeoutSignal).toHaveBeenNthCalledWith(1, 15_000);
+      expect(timeoutSignal).toHaveBeenNthCalledWith(2, 60_000);
+      expect(fetchImpl).toHaveBeenNthCalledWith(
+        1,
+        "https://registry.test/%40fantechlabs%2Fskills/latest",
+        { signal: metadataSignal },
+      );
+      expect(fetchImpl).toHaveBeenNthCalledWith(2, TARBALL_URL, { signal: tarballSignal });
+      expect(metadataSignal).not.toBe(tarballSignal);
+    } finally {
+      loaded.cleanup();
+    }
+  });
+
+  it("reports metadata timeouts without leaving staged temporary state", async () => {
+    const before = stagingDirectories();
+    const fetchImpl = vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+
+    await expect(loadLatestSkillPackage({ fetchImpl, registryUrl: REGISTRY_URL })).rejects.toThrow(
+      /failed to load latest npm skill package.*timed out/i,
+    );
+
+    expect(stagingDirectories()).toEqual(before);
+  });
+
+  it("reports tarball timeouts without leaving staged temporary state", async () => {
+    const fixture = await makeTarballFixture();
+    const before = stagingDirectories();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(metadata(fixture.integrity))))
+      .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"));
+
+    await expect(loadLatestSkillPackage({ fetchImpl, registryUrl: REGISTRY_URL })).rejects.toThrow(
+      /failed to load latest npm skill package.*timed out/i,
+    );
+
+    expect(stagingDirectories()).toEqual(before);
+  });
+
   it.each(["sha512", "sha384", "sha256"] as const)(
     "downloads, verifies, and extracts a package using %s integrity",
     async (algorithm) => {
@@ -100,8 +157,11 @@ describe("loadLatestSkillPackage", () => {
         expect(fetchImpl).toHaveBeenNthCalledWith(
           1,
           "https://registry.test/%40fantechlabs%2Fskills/latest",
+          { signal: expect.any(AbortSignal) },
         );
-        expect(fetchImpl).toHaveBeenNthCalledWith(2, TARBALL_URL);
+        expect(fetchImpl).toHaveBeenNthCalledWith(2, TARBALL_URL, {
+          signal: expect.any(AbortSignal),
+        });
         expect(loaded.packageVersion).toBe("9.9.9");
         expect(loaded.skills.map((skill) => [skill.name, skill.version])).toEqual([
           ["commit", "2.0.0"],
@@ -127,6 +187,7 @@ describe("loadLatestSkillPackage", () => {
       expect(fetchImpl).toHaveBeenNthCalledWith(
         1,
         "https://env-registry.test/%40fantechlabs%2Fskills/latest",
+        { signal: expect.any(AbortSignal) },
       );
     } finally {
       if (previousRegistry === undefined) {
