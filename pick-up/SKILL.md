@@ -1,5 +1,6 @@
 ---
 name: pick-up
+version: 1.0.0
 description: Use when resuming from a handoff document, picking up a previous agent session, or continuing work another agent handed off.
 argument-hint: "Path to handoff document or what to pick up"
 ---

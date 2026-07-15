@@ -1,5 +1,6 @@
 ---
 name: handoff
+version: 1.0.0
 description: Use when creating a compact handoff document so another agent can resume the current conversation or project work.
 argument-hint: "What will the next session be used for?"
 ---

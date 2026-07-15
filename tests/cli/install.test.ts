@@ -10,14 +10,20 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  resolveInstallTargets,
+  resolveManagementTargets,
+  type TargetFlags,
+} from "../../src/lib/install-targets.js";
 import { runNodeCli } from "../utils/exec";
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
 const tempProjects: string[] = [];
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (tempProjects.length > 0) {
     cleanupTempProject(tempProjects.pop()!);
   }
@@ -51,6 +57,135 @@ mkdirSync(join(process.cwd(), "node_modules", "@clack", "prompts"), { recursive:
 }
 
 describe("install command", () => {
+  it("preserves target resolution for local, global, Ruler, and symlink installs", async () => {
+    const cwd = makeTempProject();
+    const home = makeTempProject();
+    mkdirSync(join(home, ".agents"), { recursive: true });
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    vi.stubEnv("HOME", home);
+
+    const flags = (overrides: Partial<TargetFlags> = {}): TargetFlags => ({
+      global: false,
+      ruler: false,
+      yes: true,
+      ...overrides,
+    });
+
+    await expect(
+      resolveInstallTargets({ cwd, flags: flags(), interactive: false }),
+    ).resolves.toEqual({
+      installPaths: [join(cwd, ".agents", "skills")],
+      useSymlinkMode: false,
+    });
+    await expect(
+      resolveInstallTargets({
+        cwd,
+        flags: flags({ agent: ["claude"] }),
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(cwd, ".claude", "skills")],
+      useSymlinkMode: false,
+    });
+    await expect(
+      resolveInstallTargets({ cwd, flags: flags({ ruler: true }), interactive: false }),
+    ).resolves.toEqual({
+      installPaths: [join(cwd, ".ruler", "skills")],
+      useSymlinkMode: false,
+    });
+    await expect(
+      resolveInstallTargets({ cwd, flags: flags({ global: true }), interactive: false }),
+    ).resolves.toEqual({
+      installPaths: [join(home, ".agents", "skills"), join(home, ".cursor", "skills")],
+      useSymlinkMode: false,
+    });
+    await expect(
+      resolveInstallTargets({
+        cwd,
+        flags: flags({ global: true, symlink: true }),
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(home, ".agents", "skills")],
+      useSymlinkMode: true,
+    });
+  });
+
+  it("lets an explicit agent target override automatic Ruler project detection", async () => {
+    const cwd = makeTempProject();
+    mkdirSync(join(cwd, ".ruler"), { recursive: true });
+    writeFileSync(join(cwd, ".ruler", "ruler.toml"), "[agents]\n", "utf-8");
+
+    await expect(
+      resolveInstallTargets({
+        cwd,
+        flags: { agent: ["claude"], global: false, ruler: false, yes: true },
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(cwd, ".claude", "skills")],
+      useSymlinkMode: false,
+    });
+  });
+
+  it("rejects combining explicit Ruler and agent targets", () => {
+    const cwd = makeTempProject();
+    const result = runNodeCli(
+      ["install", "commit", "--yes", "--skip-deps", "--ruler", "--agent", "claude"],
+      { cwd },
+    );
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).toContain(
+      "`--ruler` and `--agent` cannot be used together.",
+    );
+    expect(existsSync(join(cwd, ".ruler", "skills", "commit"))).toBe(false);
+    expect(existsSync(join(cwd, ".claude", "skills", "commit"))).toBe(false);
+  });
+
+  it("resolves all detected logical global roots for management without install mode", async () => {
+    const cwd = makeTempProject();
+    const home = makeTempProject();
+    mkdirSync(join(home, ".agents"), { recursive: true });
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    vi.stubEnv("HOME", home);
+
+    await expect(
+      resolveManagementTargets({
+        cwd,
+        flags: { global: true, ruler: false, yes: false },
+        interactive: true,
+      }),
+    ).resolves.toEqual({
+      installPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
+      relatedInstallPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
+    });
+
+    await expect(
+      resolveManagementTargets({
+        cwd,
+        flags: { agent: ["agents"], global: true, ruler: false, yes: false },
+        interactive: true,
+      }),
+    ).resolves.toEqual({
+      installPaths: [join(home, ".agents", "skills")],
+      relatedInstallPaths: [
+        join(home, ".agents", "skills"),
+        join(home, ".claude", "skills"),
+        join(home, ".cursor", "skills"),
+      ],
+    });
+  });
+
   it("installs a selected skill into .agents/skills by default", () => {
     const cwd = makeTempProject();
     const result = runNodeCli(["install", "commit", "--yes", "--skip-deps"], { cwd });

@@ -1,5 +1,6 @@
 ---
 name: review
+version: 1.0.0
 description: Fetch, summarize, and address PR/MR review feedback. Categorizes comments by severity and type, helps triage and resolve issues, draft responses, and push fixes. Use when a PR has review comments to address, when asked to handle review feedback, or when preparing to re-request review.
 ---
 

@@ -6,13 +6,15 @@ This is a shared skills repository. Skills here follow the [Agent Skills](https:
 
 ```
 <skill-name>/
-  SKILL.md           # Required — frontmatter (name, description) + instructions
+  SKILL.md           # Required — frontmatter (name, version, description) + instructions
   scripts/           # Optional — executable code (bun/tsx)
   references/        # Optional — additional documentation
   assets/            # Optional — templates, resources
 ```
 
-Each `SKILL.md` must have YAML frontmatter with `name` (matching directory name, lowercase + hyphens) and `description` (what it does and when to use it).
+Each `SKILL.md` must have YAML frontmatter with `name` (matching directory name, lowercase + hyphens), `version`, and `description` (what it does and when to use it). New skills start at `version: 1.0.0`.
+
+Whenever a skill's instructions, scripts, references, or assets change, bump its version in the same change: patch for fixes or wording, minor for backward-compatible capabilities, and major for breaking behavior. Before a regular npm release, verify every changed skill has an appropriate bump; unchanged skills keep their existing versions.
 
 ## After modifying skills
 

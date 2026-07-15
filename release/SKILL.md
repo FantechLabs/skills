@@ -1,5 +1,6 @@
 ---
 name: release
+version: 1.0.0
 description: Release packages by running changeset version, creating git tags, and GitHub releases. Use after merging PRs with changesets, when ready to release, or when asked about versioning/publishing.
 ---
 

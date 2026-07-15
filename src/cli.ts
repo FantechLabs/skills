@@ -45,8 +45,8 @@ Commands:
   list                  List bundled skills and install status
   install [skills...]   Install skills into project skill directories
   run <skill> [args...] Run a skill script
-  remove [skills...]    Reserved (coming soon)
-  update [skills...]    Reserved (coming soon)
+  remove [skills...]    Remove installed skills with confirmation
+  update [skills...]    Update installed skills from npm by version
 
 Options:
   -h, --help            Show help

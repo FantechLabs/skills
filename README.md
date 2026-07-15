@@ -115,8 +115,8 @@ Use the same pattern for any other skill folder in this repo:
 - `skills install [skills...]`: install selected skills, or all skills when none are provided in non-interactive mode.
 - `skills run <skill> [subcommand] [args...]`: run a skill script.
 - `skills <skill-name> [subcommand] [args...]`: shortcut for `skills run <skill-name> ...`.
-- `skills remove` (reserved, coming soon)
-- `skills update` (reserved, coming soon)
+- `skills update [skills...]`: update installed skills from the latest npm package by skill version.
+- `skills remove [skills...]`: remove installed skills from the selected targets.
 
 Common install flags:
 
@@ -126,6 +126,79 @@ Common install flags:
 - `--ruler`: install into `.ruler/skills`.
 - `--yes`: skip interactive prompts.
 - `--skip-deps`: copy skills without installing per-skill script dependencies.
+
+### Updating Skills
+
+`skills update` downloads the package selected by the npm `latest` dist-tag and compares each
+installed skill's `version` in `SKILL.md` with that skill's version in the downloaded package.
+Skill versions are independent of the root npm package version, so only skills with a lower
+version are updated. An installed skill without version metadata is reported as `legacy` and is
+eligible for update. The command does not downgrade an installed skill whose version is newer.
+
+In an interactive terminal, `update` without names opens a picker for outdated skills and then
+asks for confirmation. Supplying names limits the update to those skills. With `--yes`, prompts
+are skipped; omitting names updates every outdated installed skill in the selected targets.
+Non-interactive updates require `--yes`.
+
+```bash
+# Interactively pick from outdated local skills
+npx @fantechlabs/skills update
+
+# Interactively confirm an update of one named skill
+npx @fantechlabs/skills update commit
+
+# Update every outdated skill in detected global targets without prompts
+npx @fantechlabs/skills update --global --yes
+
+# Update named Ruler skills and skip dependency installation
+npx @fantechlabs/skills update commit review --ruler --yes --skip-deps
+```
+
+Update flags:
+
+- `--agent <agent>`: restrict discovery and updates to a target agent; repeat for multiple agents.
+- `--global`: use detected global agent skill directories.
+- `--ruler`: use the current project's `.ruler/skills` directory.
+- `--yes`: skip selection and confirmation; without names, update all outdated skills.
+- `--skip-deps`: do not install dependencies for updated skill script packages.
+
+Copied installs are updated in place. For symlinked installs, the command preserves each logical
+symlink and updates its canonical shared source only once, even when multiple agent directories
+link to it. A global update plan also lists detected agent links affected by a selected shared
+source, including links outside a narrowly selected `--agent agents` target.
+
+### Removing Skills
+
+In an interactive terminal, `remove` without names opens a picker and then asks for confirmation.
+Supplying names removes only those skills after confirmation. `remove --yes` is intentionally not
+a remove-all operation: automation must provide one or more explicit skill names. Non-interactive
+removals require both explicit names and `--yes`.
+
+```bash
+# Remove one local skill after confirmation
+npx @fantechlabs/skills remove commit
+
+# Interactively pick skills from detected global targets
+npx @fantechlabs/skills remove --global
+
+# Remove explicit global skills without prompts
+npx @fantechlabs/skills remove commit review --global --yes
+
+# Remove an explicit Ruler skill without prompts
+npx @fantechlabs/skills remove review --ruler --yes
+```
+
+Remove flags:
+
+- `--agent <agent>`: restrict discovery and removal to a target agent; repeat for multiple agents.
+- `--global`: use detected global agent skill directories.
+- `--ruler`: use the current project's `.ruler/skills` directory.
+- `--yes`: skip confirmation, but only when explicit skill names are present.
+
+The removal plan shows every matching logical install location. Removing a symlink location removes
+the link itself rather than following it and deleting the shared canonical source. When the shared
+source itself is selected, the plan identifies it and also removes detected links backed by that
+source so the global agent roots are not left with dangling skill links.
 
 ## Skill Script Routing
 

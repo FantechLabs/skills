@@ -1,6 +1,6 @@
 {
   "name": "@fantechlabs/skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shared agent skills and CLI for Fantech engineering practices",
   "license": "MIT",
   "repository": {
@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
+    "tar": "^7.5.20",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
