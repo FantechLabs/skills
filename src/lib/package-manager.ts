@@ -54,6 +54,10 @@ export function installPackageDependencies(
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
+  if (!existsSync(cwd)) {
+    throw new Error(`Cannot install dependencies: package directory does not exist: ${cwd}`);
+  }
+
   const result = spawnSync(manager, ["install"], {
     cwd,
     env,

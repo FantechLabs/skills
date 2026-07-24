@@ -2,9 +2,9 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
-export const REPO_ROOT = resolve(__dirname, "..", "..");
+export const REPO_ROOT = resolve(moduleDir, "..", "..");
 export const BIN_PATH = resolve(REPO_ROOT, "bin", "skills.mjs");
 
 export interface CliResult {
@@ -14,12 +14,13 @@ export interface CliResult {
 }
 
 interface CliOptions {
+  binPath?: string;
   cwd?: string;
   env?: NodeJS.ProcessEnv;
 }
 
 export function runNodeCli(args: string[], options: CliOptions = {}): CliResult {
-  const result = spawnSync(process.execPath, [BIN_PATH, ...args], {
+  const result = spawnSync(process.execPath, [options.binPath ?? BIN_PATH, ...args], {
     cwd: options.cwd ?? REPO_ROOT,
     env: {
       ...process.env,
