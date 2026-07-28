@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, parse } from "node:path";
 
 export type PackageManager = "bun" | "npm" | "pnpm";
@@ -54,7 +54,7 @@ export function installPackageDependencies(
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  if (!existsSync(cwd)) {
+  if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error(`Cannot install dependencies: package directory does not exist: ${cwd}`);
   }
 

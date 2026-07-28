@@ -1,6 +1,6 @@
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getSharedAgentNames } from "./agents.js";
@@ -196,9 +196,10 @@ export function copySkill(skillPath: string, targetDir: string): void {
   const resolvedSkillPath = resolve(skillPath);
   cpSync(skillPath, targetDir, {
     recursive: true,
+    verbatimSymlinks: true,
     filter: (sourcePath) => {
       const pathWithinSkill = relative(resolvedSkillPath, resolve(sourcePath));
-      return !pathWithinSkill.split(/[\\/]/).includes("node_modules");
+      return !pathWithinSkill.split(sep).includes("node_modules");
     },
   });
 
