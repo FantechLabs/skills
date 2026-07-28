@@ -476,6 +476,9 @@ describe("install command", () => {
     );
 
     const fakeBinDir = createFakePackageManager(cwd, "npm");
+
+    writeFileSync(join(cwd, "package-lock.json"), "{}\n", "utf-8");
+
     const result = runNodeCli(["install", "--yes"], {
       binPath: join(packageRoot, "bin", "skills.mjs"),
       cwd,
