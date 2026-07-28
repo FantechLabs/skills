@@ -23,14 +23,14 @@ import {
   usageText,
 } from "../../claude-workflow/scripts/workflow";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const WORKFLOW_TS = resolve(__dirname, "../../claude-workflow/scripts/workflow.ts");
-const SIGINT_HARNESS_TS = resolve(__dirname, "fixtures/sigint-harness.ts");
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const WORKFLOW_TS = resolve(moduleDir, "../../claude-workflow/scripts/workflow.ts");
+const SIGINT_HARNESS_TS = resolve(moduleDir, "fixtures/sigint-harness.ts");
 // The stub MUST be named `claude` — PATH lookup resolves the command name, so a
 // file named anything else is invisible to `ensureClaudeOnPath()` and the spawned
 // shell command. (On dev machines a real `claude` further down PATH would mask a
 // misnamed stub; CI has none, so the lookup fails outright.)
-const FAKE_CLAUDE_DIR = dirname(resolve(__dirname, "fixtures/claude"));
+const FAKE_CLAUDE_DIR = dirname(resolve(moduleDir, "fixtures/claude"));
 
 describe("shellQuote", () => {
   it("single-quotes and escapes embedded quotes", () => {

@@ -11,8 +11,8 @@ import runCommand from "./commands/run.js";
 import updateCommand from "./commands/update.js";
 import { discoverBundledSkills } from "./lib/skills.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = join(__dirname, "..");
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = join(moduleDir, "..");
 
 type CommandHandler = (args: string[]) => Promise<void>;
 

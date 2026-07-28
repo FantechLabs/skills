@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -17,7 +18,7 @@ import {
   resolveManagementTargets,
   type TargetFlags,
 } from "../../src/lib/install-targets.js";
-import { runNodeCli } from "../utils/exec";
+import { REPO_ROOT, runNodeCli } from "../utils/exec";
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
 const tempProjects: string[] = [];
@@ -442,6 +443,73 @@ describe("install command", () => {
     expect(installs[0].cwd.replace(/^\/private/, "")).toBe(
       join(cwd, ".agents", "skills", "commit", "scripts").replace(/^\/private/, ""),
     );
+  });
+
+  it("copies every skill and installs runnable dependencies when the package is beneath node_modules", () => {
+    const fixtureRoot = makeTempProject();
+    const packageRoot = join(fixtureRoot, "package-host", "node_modules", "@fantechlabs", "skills");
+    const cwd = join(fixtureRoot, "project");
+    const logFile = join(cwd, "pm.log");
+    const expectedSkills = [
+      "changeset",
+      "claude-workflow",
+      "commit",
+      "handoff",
+      "pick-up",
+      "pr",
+      "release",
+      "review",
+    ];
+    const runnableSkills = ["changeset", "claude-workflow", "commit", "pr", "release"];
+
+    mkdirSync(packageRoot, { recursive: true });
+    mkdirSync(cwd, { recursive: true });
+    for (const entry of ["bin", "src", "package.json", ...expectedSkills]) {
+      cpSync(join(REPO_ROOT, entry), join(packageRoot, entry), { recursive: true });
+    }
+    symlinkSync(join(REPO_ROOT, "node_modules"), join(packageRoot, "node_modules"), "dir");
+    mkdirSync(join(packageRoot, "handoff", "node_modules", "fixture-only"), { recursive: true });
+    writeFileSync(
+      join(packageRoot, "handoff", "node_modules", "fixture-only", "excluded.txt"),
+      "must not be copied\n",
+      "utf-8",
+    );
+
+    const fakeBinDir = createFakePackageManager(cwd, "npm");
+
+    writeFileSync(join(cwd, "package-lock.json"), "{}\n", "utf-8");
+
+    const result = runNodeCli(["install", "--yes"], {
+      binPath: join(packageRoot, "bin", "skills.mjs"),
+      cwd,
+      env: {
+        PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
+        SKILLS_PM_LOG: logFile,
+      },
+    });
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    for (const skill of expectedSkills) {
+      expect(existsSync(join(cwd, ".agents", "skills", skill, "SKILL.md"))).toBe(true);
+      expect(result.stdout).toContain(`✓ ${skill} ->`);
+    }
+    expect(existsSync(join(cwd, ".agents", "skills", "handoff", "node_modules"))).toBe(false);
+
+    const installs = readFileSync(logFile, "utf-8").trim().split("\n").map(JSON.parse);
+    expect(installs).toHaveLength(5);
+    expect(
+      installs.map(({ cwd: installCwd }) => installCwd.replace(/^\/private/, "")).sort(),
+    ).toEqual(
+      runnableSkills
+        .map((skill) => join(cwd, ".agents", "skills", skill, "scripts").replace(/^\/private/, ""))
+        .sort(),
+    );
+    expect(installs.every(({ args }) => JSON.stringify(args) === '["install"]')).toBe(true);
+    for (const skill of runnableSkills) {
+      expect(existsSync(join(cwd, ".agents", "skills", skill, "scripts", "node_modules"))).toBe(
+        true,
+      );
+    }
   });
 
   it("supports skipping dependency installation", () => {

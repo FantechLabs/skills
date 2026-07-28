@@ -1,6 +1,6 @@
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getSharedAgentNames } from "./agents.js";
@@ -44,8 +44,8 @@ export interface SkillDirectoryDiff {
   removedFiles: string[];
 }
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = join(__dirname, "..", "..");
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = join(moduleDir, "..", "..");
 const STABLE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const IGNORED_FILE_NAMES = new Set([
   "bun.lock",
@@ -193,13 +193,21 @@ export function findInstalledSkills(
 export function copySkill(skillPath: string, targetDir: string): void {
   rmSync(targetDir, { recursive: true, force: true });
 
+  const resolvedSkillPath = resolve(skillPath);
   cpSync(skillPath, targetDir, {
     recursive: true,
+    verbatimSymlinks: true,
     filter: (sourcePath) => {
-      const normalized = sourcePath.replace(/\\/g, "/");
-      return !normalized.includes("/node_modules/") && !normalized.endsWith("/node_modules");
+      const pathWithinSkill = relative(resolvedSkillPath, resolve(sourcePath));
+      return !pathWithinSkill.split(sep).includes("node_modules");
     },
   });
+
+  if (!existsSync(targetDir)) {
+    throw new Error(
+      `Failed to copy skill from ${skillPath} to ${targetDir}: destination was not created`,
+    );
+  }
 }
 
 export function compareSkillDirectories(sourceDir: string, targetDir: string): SkillDirectoryDiff {
