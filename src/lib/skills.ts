@@ -94,13 +94,14 @@ export function readSkillMetadata(skillDir: string): SkillMetadata {
 
 export function discoverBundledSkills(packageRoot = PACKAGE_ROOT): SkillInfo[] {
   const skills: SkillInfo[] = [];
+  const skillsRoot = join(packageRoot, "skills");
 
-  for (const entry of readdirSync(packageRoot, { withFileTypes: true })) {
+  for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) {
       continue;
     }
 
-    const skillDir = join(packageRoot, entry.name);
+    const skillDir = join(skillsRoot, entry.name);
     const skillFile = join(skillDir, "SKILL.md");
 
     if (!existsSync(skillFile)) {

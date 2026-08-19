@@ -1,6 +1,6 @@
 ---
 name: claude-workflow
-version: 1.0.0
+version: 1.0.1
 description: Launch a Claude Code dynamic multi-agent workflow from any harness via headless `claude -p`. Use when a task needs Claude Code's Workflow orchestration (parallel research, multi-dimensional review, large migrations, adversarial verification) and you are NOT running inside Claude Code — e.g. from Codex, Pi, or a plain shell. Supports read-only "explore" runs and read-write "build" runs.
 argument-hint: "explore|build + path to a markdown prompt file"
 ---

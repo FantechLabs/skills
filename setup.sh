@@ -15,6 +15,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILLS_DIR="$REPO_DIR/skills"
 TARGETS=()
 
 [[ -d "$HOME/.agents" ]] && TARGETS+=("$HOME/.agents/skills")
@@ -33,7 +34,7 @@ for target_base in "${TARGETS[@]}"; do
   mkdir -p "$target_base"
 
   # Create/update symlinks for each skill
-  for skill_dir in "$REPO_DIR"/*/; do
+  for skill_dir in "$SKILLS_DIR"/*/; do
     [[ -f "${skill_dir}SKILL.md" ]] || continue
     skill_name="$(basename "$skill_dir")"
     target="$target_base/$skill_name"
@@ -63,7 +64,7 @@ for target_base in "${TARGETS[@]}"; do
     [[ -L "$link" ]] || continue
     resolved="$(readlink "$link")"
     # Only touch links that point into this repo
-    [[ "$resolved" == "$REPO_DIR"/* ]] || continue
+    [[ "$resolved" == "$SKILLS_DIR"/* ]] || continue
     # If the target still exists, leave it alone
     [[ -d "$resolved" ]] && continue
     rm "$link"

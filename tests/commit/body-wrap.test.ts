@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wrapCommitBody } from "../../commit/scripts/lib/body";
+import { wrapCommitBody } from "../../skills/commit/scripts/lib/body";
 
 describe("wrapCommitBody", () => {
   it("keeps short lines unchanged", () => {

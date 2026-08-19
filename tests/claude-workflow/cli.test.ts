@@ -13,7 +13,7 @@ import {
   readMeta,
   writeMeta,
   type RunMeta,
-} from "../../claude-workflow/scripts/lib/runs";
+} from "../../skills/claude-workflow/scripts/lib/runs";
 import {
   buildShellCommand,
   handleForegroundSignal,
@@ -21,10 +21,10 @@ import {
   resultFileName,
   shellQuote,
   usageText,
-} from "../../claude-workflow/scripts/workflow";
+} from "../../skills/claude-workflow/scripts/workflow";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
-const WORKFLOW_TS = resolve(moduleDir, "../../claude-workflow/scripts/workflow.ts");
+const WORKFLOW_TS = resolve(moduleDir, "../../skills/claude-workflow/scripts/workflow.ts");
 const SIGINT_HARNESS_TS = resolve(moduleDir, "fixtures/sigint-harness.ts");
 // The stub MUST be named `claude` — PATH lookup resolves the command name, so a
 // file named anything else is invisible to `ensureClaudeOnPath()` and the spawned

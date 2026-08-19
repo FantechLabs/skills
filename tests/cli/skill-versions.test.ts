@@ -10,6 +10,23 @@ import {
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
 describe("skill versions", () => {
+  it("discovers bundled skills from the package skills directory", () => {
+    const root = createTempProject();
+    const skillDir = join(root, "skills", "example");
+
+    try {
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        join(skillDir, "SKILL.md"),
+        "---\nname: example\nversion: 1.0.0\ndescription: Example\n---\n",
+      );
+
+      expect(discoverBundledSkills(root).map((skill) => skill.name)).toEqual(["example"]);
+    } finally {
+      cleanupTempProject(root);
+    }
+  });
+
   it("requires a stable semantic version on every bundled skill", () => {
     const skills = discoverBundledSkills();
     for (const skill of skills) {
@@ -20,9 +37,9 @@ describe("skill versions", () => {
   it("rejects a bundled skill with missing version metadata", () => {
     const root = createTempProject();
     try {
-      mkdirSync(join(root, "example"));
+      mkdirSync(join(root, "skills", "example"), { recursive: true });
       writeFileSync(
-        join(root, "example", "SKILL.md"),
+        join(root, "skills", "example", "SKILL.md"),
         "---\nname: example\ndescription: Example\n---\n",
       );
       expect(() => discoverBundledSkills(root)).toThrow(/missing version/i);

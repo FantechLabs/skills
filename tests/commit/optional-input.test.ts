@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeOptionalText } from "../../commit/scripts/lib/optional";
+import { normalizeOptionalText } from "../../skills/commit/scripts/lib/optional";
 
 describe("normalizeOptionalText", () => {
   it("returns null for empty values", () => {

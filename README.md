@@ -15,7 +15,7 @@ Shared agent skills and a CLI for installing and running them.
 | `release` | Runnable | Consume Changesets, version packages, create tags, and create GitHub releases. | `skills release --dry-run`, `skills release --ci` |
 | `review` | Docs only | Fetch, triage, and address PR/MR review feedback. | Install and invoke as an agent skill. |
 
-Runnable skills include scripts under `<skill>/scripts/` and can be executed through this package's `skills` CLI. Docs-only skills are agent instructions without a CLI script. `claude-workflow` additionally requires the Claude Code CLI (`claude`) on PATH, authenticated.
+Runnable skills include scripts under `skills/<skill>/scripts/` in this repository and can be executed through this package's `skills` CLI. Docs-only skills are agent instructions without a CLI script. `claude-workflow` additionally requires the Claude Code CLI (`claude`) on PATH, authenticated.
 
 ## Requirements
 

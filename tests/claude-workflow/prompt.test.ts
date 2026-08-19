@@ -1,7 +1,7 @@
 // tests/claude-workflow/prompt.test.ts
 import { describe, expect, it } from "vitest";
 
-import { composePrompt, PROMPT_SEPARATOR } from "../../claude-workflow/scripts/lib/prompt";
+import { composePrompt, PROMPT_SEPARATOR } from "../../skills/claude-workflow/scripts/lib/prompt";
 
 describe("composePrompt", () => {
   it("places the caller prompt verbatim after the separator", () => {

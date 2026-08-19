@@ -15,7 +15,7 @@ import {
   resolveRun,
   STARTING_GRACE_MS,
   writeMeta,
-} from "../../claude-workflow/scripts/lib/runs";
+} from "../../skills/claude-workflow/scripts/lib/runs";
 
 let base: string;
 

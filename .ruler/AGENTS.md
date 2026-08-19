@@ -5,11 +5,12 @@ This is a shared skills repository. Skills here follow the [Agent Skills](https:
 ## Project structure
 
 ```
-<skill-name>/
-  SKILL.md           # Required — frontmatter (name, version, description) + instructions
-  scripts/           # Optional — executable code (bun/tsx)
-  references/        # Optional — additional documentation
-  assets/            # Optional — templates, resources
+skills/
+  <skill-name>/
+    SKILL.md           # Required — frontmatter (name, version, description) + instructions
+    scripts/           # Optional — executable code (bun/tsx)
+    references/        # Optional — additional documentation
+    assets/            # Optional — templates, resources
 ```
 
 Each `SKILL.md` must have YAML frontmatter with `name` (matching directory name, lowercase + hyphens), `version`, and `description` (what it does and when to use it). New skills start at `version: 1.0.0`.

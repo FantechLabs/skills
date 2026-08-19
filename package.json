@@ -13,14 +13,7 @@
   "files": [
     "bin/",
     "src/",
-    "commit/",
-    "changeset/",
-    "claude-workflow/",
-    "handoff/",
-    "pick-up/",
-    "pr/",
-    "release/",
-    "review/",
+    "skills/",
     "README.md",
     "LICENSE"
   ],
@@ -31,9 +24,9 @@
   "scripts": {
     "skills": "node ./bin/skills.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src tests commit/scripts claude-workflow/scripts release/scripts changeset/scripts vitest.config.ts",
-    "format": "oxfmt src tests commit/scripts claude-workflow/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
-    "format:check": "oxfmt --check src tests commit/scripts claude-workflow/scripts release/scripts changeset/scripts bin package.json tsconfig.json vitest.config.ts",
+    "lint": "oxlint src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts vitest.config.ts",
+    "format": "oxfmt src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vitest.config.ts",
+    "format:check": "oxfmt --check src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vitest.config.ts",
     "precommit": "bun run lint && bun run format:check",
     "commitlint": "commitlint",
     "prepare": "husky",

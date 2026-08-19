@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { findMonorepoRoot } from "../../changeset/scripts/lib/runtime";
+import { findMonorepoRoot } from "../../skills/changeset/scripts/lib/runtime";
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
 const tempProjects: string[] = [];

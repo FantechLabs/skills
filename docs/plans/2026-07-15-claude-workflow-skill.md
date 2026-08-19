@@ -4,15 +4,15 @@
 
 **Goal:** A skill any non-Claude harness can invoke to launch Claude Code dynamic workflows via headless `claude -p`, with explore (read-only) and build (read-write) modes.
 
-**Architecture:** A `claude-workflow/` skill directory (SKILL.md + TypeScript launcher) in the fantechlabs-skills repo. The launcher (`scripts/workflow.ts`) composes a hardcoded preamble with the caller's prompt file, spawns `claude -p` detached with mode-appropriate permission flags, and manages run directories under `~/.agents/claude-workflow/runs/`. Result extraction is lazy: `status`/`result` parse the stream-json log once the process exits.
+**Architecture:** A `skills/claude-workflow/` skill directory (SKILL.md + TypeScript launcher) in the fantechlabs-skills repo. The launcher (`scripts/workflow.ts`) composes a hardcoded preamble with the caller's prompt file, spawns `claude -p` detached with mode-appropriate permission flags, and manages run directories under `~/.agents/claude-workflow/runs/`. Result extraction is lazy: `status`/`result` parse the stream-json log once the process exits.
 
-**Tech Stack:** TypeScript (ESM, NodeNext), `node:util` parseArgs, no runtime deps, vitest for tests, run via `bun` (matching `commit/scripts`).
+**Tech Stack:** TypeScript (ESM, NodeNext), `node:util` parseArgs, no runtime deps, vitest for tests, run via `bun` (matching `skills/commit/scripts`).
 
 **Spec:** `docs/specs/2026-07-15-claude-workflow-skill-design.md`
 
 ## Global Constraints
 
-- Repo conventions: scripts live in `<skill>/scripts/` with own `package.json` (`@skills/<name>-scripts`, `"type": "module"`, `engines.node >= 20.10.0`); lib modules import with `.js` extensions (NodeNext); tests in `tests/claude-workflow/*.test.ts` import without extension.
+- Repo conventions: scripts live in `skills/<skill>/scripts/` with own `package.json` (`@skills/<name>-scripts`, `"type": "module"`, `engines.node >= 20.10.0`); lib modules import with `.js` extensions (NodeNext); tests in `tests/claude-workflow/*.test.ts` import without extension.
 - Commits: conventional commits with emoji (`feat(claude-workflow): ✨ …`), atomic per task, NO AI attribution of any kind.
 - Explore-mode allowlist and disallow list must match the spec verbatim (see Task 3 constants).
 - Env var `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` must be set on every `claude` launch.
@@ -23,16 +23,17 @@
 ## File Structure
 
 ```text
-claude-workflow/
-  SKILL.md                      # Task 7
-  scripts/
-    package.json                # Task 1
-    workflow.ts                 # Task 6 — CLI entry: start|status|result|stop|resume|list
-    lib/
-      prompt.ts                 # Task 2 — preamble + composePrompt()
-      modes.ts                  # Task 3 — allowlists + buildClaudeArgs()
-      result.ts                 # Task 4 — extractResult() from stream-json log
-      runs.ts                   # Task 5 — run dirs, meta.json, PID liveness, finalize
+skills/
+  claude-workflow/
+    SKILL.md                      # Task 7
+    scripts/
+      package.json                # Task 1
+      workflow.ts                 # Task 6 — CLI entry: start|status|result|stop|resume|list
+      lib/
+        prompt.ts                 # Task 2 — preamble + composePrompt()
+        modes.ts                  # Task 3 — allowlists + buildClaudeArgs()
+        result.ts                 # Task 4 — extractResult() from stream-json log
+        runs.ts                   # Task 5 — run dirs, meta.json, PID liveness, finalize
 docs/claude-workflow-smoke.md   # Task 7 — manual smoke instructions
 tests/claude-workflow/
   prompt.test.ts                # Task 2
@@ -47,15 +48,15 @@ tests/claude-workflow/
 ### Task 1: Scaffold and repo integration
 
 **Files:**
-- Create: `claude-workflow/scripts/package.json`
+- Create: `skills/claude-workflow/scripts/package.json`
 - Modify: `package.json` (root — `files` array, `lint`/`format` scripts)
 - Modify: `tsconfig.json` (`include`)
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: the `claude-workflow/scripts/` package later tasks write into; typecheck/lint coverage for it.
+- Produces: the `skills/claude-workflow/scripts/` package later tasks write into; typecheck/lint coverage for it.
 
-- [ ] **Step 1: Create `claude-workflow/scripts/package.json`**
+- [ ] **Step 1: Create `skills/claude-workflow/scripts/package.json`**
 
 ```json
 {
@@ -76,21 +77,21 @@ tests/claude-workflow/
 }
 ```
 
-- [ ] **Step 2: Add `"claude-workflow/"` to the root `package.json` `files` array** (after `"changeset/"`, keep alphabetical-ish grouping with the other skill dirs).
+- [ ] **Step 2: Ensure `"skills/"` is in the root `package.json` `files` array.**
 
-- [ ] **Step 3: Add `claude-workflow/scripts` to the root `lint` and `format` script globs** in `package.json`, e.g. `"lint": "oxlint src tests commit/scripts claude-workflow/scripts release/scripts changeset/scripts vitest.config.ts"` (mirror the same insertion in `format`).
+- [ ] **Step 3: Ensure `skills/claude-workflow/scripts` is included in the root `lint` and `format` script paths** in `package.json`.
 
-- [ ] **Step 4: Add `"claude-workflow/scripts/**/*.ts"` to `tsconfig.json` `include`.**
+- [ ] **Step 4: Add `"skills/claude-workflow/scripts/**/*.ts"` to `tsconfig.json` `include`.**
 
 - [ ] **Step 5: Verify**
 
 Run: `bun run typecheck && bun run lint`
-Expected: both pass (no new files to check yet beyond package.json — this proves globs don't error on the empty dir; if oxlint errors on a glob with no matches, create `claude-workflow/scripts/lib/` with the Task 2 file first and fold this verification into Task 2).
+Expected: both pass (no new files to check yet beyond package.json — this proves globs don't error on the empty dir; if oxlint errors on a glob with no matches, create `skills/claude-workflow/scripts/lib/` with the Task 2 file first and fold this verification into Task 2).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add claude-workflow/scripts/package.json package.json tsconfig.json
+git add skills/claude-workflow/scripts/package.json package.json tsconfig.json
 git commit -m "chore(claude-workflow): 🔧 scaffold skill package"
 ```
 
@@ -99,7 +100,7 @@ git commit -m "chore(claude-workflow): 🔧 scaffold skill package"
 ### Task 2: Prompt composition (`lib/prompt.ts`)
 
 **Files:**
-- Create: `claude-workflow/scripts/lib/prompt.ts`
+- Create: `skills/claude-workflow/scripts/lib/prompt.ts`
 - Test: `tests/claude-workflow/prompt.test.ts`
 
 **Interfaces:**
@@ -112,7 +113,7 @@ git commit -m "chore(claude-workflow): 🔧 scaffold skill package"
 // tests/claude-workflow/prompt.test.ts
 import { describe, expect, it } from "vitest";
 
-import { composePrompt, PROMPT_SEPARATOR } from "../../claude-workflow/scripts/lib/prompt";
+import { composePrompt, PROMPT_SEPARATOR } from "../../skills/claude-workflow/scripts/lib/prompt";
 
 describe("composePrompt", () => {
   it("places the caller prompt verbatim after the separator", () => {
@@ -154,12 +155,12 @@ describe("composePrompt", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `bun run vitest run tests/claude-workflow/prompt.test.ts` (if `vitest` isn't a root script, use `bunx vitest run tests/claude-workflow/prompt.test.ts`)
-Expected: FAIL — cannot resolve `../../claude-workflow/scripts/lib/prompt`.
+Expected: FAIL — cannot resolve `../../skills/claude-workflow/scripts/lib/prompt`.
 
 - [ ] **Step 3: Write the implementation**
 
 ```typescript
-// claude-workflow/scripts/lib/prompt.ts
+// skills/claude-workflow/scripts/lib/prompt.ts
 export type Mode = "explore" | "build";
 
 export const PROMPT_SEPARATOR = "\n\n---\n<!-- caller prompt below -->\n\n";
@@ -217,7 +218,7 @@ Expected: PASS (6 tests).
 
 ```bash
 bun run typecheck && bun run lint
-git add claude-workflow/scripts/lib/prompt.ts tests/claude-workflow/prompt.test.ts
+git add skills/claude-workflow/scripts/lib/prompt.ts tests/claude-workflow/prompt.test.ts
 git commit -m "feat(claude-workflow): ✨ add prompt composition with workflow preamble"
 ```
 
@@ -226,7 +227,7 @@ git commit -m "feat(claude-workflow): ✨ add prompt composition with workflow p
 ### Task 3: Mode flags (`lib/modes.ts`)
 
 **Files:**
-- Create: `claude-workflow/scripts/lib/modes.ts`
+- Create: `skills/claude-workflow/scripts/lib/modes.ts`
 - Test: `tests/claude-workflow/modes.test.ts`
 
 **Interfaces:**
@@ -243,7 +244,7 @@ import {
   buildClaudeArgs,
   EXPLORE_ALLOWED_TOOLS,
   EXPLORE_DISALLOWED_TOOLS,
-} from "../../claude-workflow/scripts/lib/modes";
+} from "../../skills/claude-workflow/scripts/lib/modes";
 
 describe("explore allowlist", () => {
   it("matches the spec verbatim", () => {
@@ -305,7 +306,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Write the implementation**
 
 ```typescript
-// claude-workflow/scripts/lib/modes.ts
+// skills/claude-workflow/scripts/lib/modes.ts
 import type { Mode } from "./prompt.js";
 
 export const EXPLORE_ALLOWED_TOOLS: readonly string[] = [
@@ -354,7 +355,7 @@ Expected: PASS.
 
 ```bash
 bun run typecheck && bun run lint
-git add claude-workflow/scripts/lib/modes.ts tests/claude-workflow/modes.test.ts
+git add skills/claude-workflow/scripts/lib/modes.ts tests/claude-workflow/modes.test.ts
 git commit -m "feat(claude-workflow): ✨ add mode permission flags with explore allowlist"
 ```
 
@@ -363,7 +364,7 @@ git commit -m "feat(claude-workflow): ✨ add mode permission flags with explore
 ### Task 4: Result extraction (`lib/result.ts`)
 
 **Files:**
-- Create: `claude-workflow/scripts/lib/result.ts`
+- Create: `skills/claude-workflow/scripts/lib/result.ts`
 - Test: `tests/claude-workflow/result.test.ts`
 
 **Interfaces:**
@@ -376,7 +377,7 @@ git commit -m "feat(claude-workflow): ✨ add mode permission flags with explore
 // tests/claude-workflow/result.test.ts
 import { describe, expect, it } from "vitest";
 
-import { extractResult } from "../../claude-workflow/scripts/lib/result";
+import { extractResult } from "../../skills/claude-workflow/scripts/lib/result";
 
 const initEvent = JSON.stringify({
   type: "system",
@@ -446,7 +447,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Write the implementation**
 
 ```typescript
-// claude-workflow/scripts/lib/result.ts
+// skills/claude-workflow/scripts/lib/result.ts
 export interface RunResult {
   text: string;
   sessionId: string | null;
@@ -507,7 +508,7 @@ Expected: PASS.
 
 ```bash
 bun run typecheck && bun run lint
-git add claude-workflow/scripts/lib/result.ts tests/claude-workflow/result.test.ts
+git add skills/claude-workflow/scripts/lib/result.ts tests/claude-workflow/result.test.ts
 git commit -m "feat(claude-workflow): ✨ extract results from stream-json logs"
 ```
 
@@ -516,7 +517,7 @@ git commit -m "feat(claude-workflow): ✨ extract results from stream-json logs"
 ### Task 5: Run directory management (`lib/runs.ts`)
 
 **Files:**
-- Create: `claude-workflow/scripts/lib/runs.ts`
+- Create: `skills/claude-workflow/scripts/lib/runs.ts`
 - Test: `tests/claude-workflow/runs.test.ts`
 
 **Interfaces:**
@@ -549,7 +550,7 @@ import {
   readMeta,
   resolveRun,
   writeMeta,
-} from "../../claude-workflow/scripts/lib/runs";
+} from "../../skills/claude-workflow/scripts/lib/runs";
 
 let base: string;
 
@@ -656,7 +657,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Write the implementation**
 
 ```typescript
-// claude-workflow/scripts/lib/runs.ts
+// skills/claude-workflow/scripts/lib/runs.ts
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
@@ -786,7 +787,7 @@ Expected: PASS. (If the `createRun` slug assertion flakes because two runs in th
 
 ```bash
 bun run typecheck && bun run lint
-git add claude-workflow/scripts/lib/runs.ts tests/claude-workflow/runs.test.ts
+git add skills/claude-workflow/scripts/lib/runs.ts tests/claude-workflow/runs.test.ts
 git commit -m "feat(claude-workflow): ✨ add run directory lifecycle with lazy finalize"
 ```
 
@@ -795,7 +796,7 @@ git commit -m "feat(claude-workflow): ✨ add run directory lifecycle with lazy 
 ### Task 6: CLI entry (`workflow.ts`)
 
 **Files:**
-- Create: `claude-workflow/scripts/workflow.ts`
+- Create: `skills/claude-workflow/scripts/workflow.ts`
 - Test: `tests/claude-workflow/cli.test.ts`
 
 **Interfaces:**
@@ -819,7 +820,7 @@ Subcommands (first positional arg):
 // tests/claude-workflow/cli.test.ts
 import { describe, expect, it } from "vitest";
 
-import { buildShellCommand, shellQuote } from "../../claude-workflow/scripts/workflow";
+import { buildShellCommand, shellQuote } from "../../skills/claude-workflow/scripts/workflow";
 
 describe("shellQuote", () => {
   it("single-quotes and escapes embedded quotes", () => {
@@ -856,7 +857,7 @@ Expected: FAIL — module not found.
 
 ```typescript
 #!/usr/bin/env node
-// claude-workflow/scripts/workflow.ts
+// skills/claude-workflow/scripts/workflow.ts
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -1086,7 +1087,7 @@ Expected: PASS (all suites, including the extended finalize test).
 ```bash
 cd /Users/uzee/sources/fantech/skills
 echo "# Test task" > /tmp/cw-test-prompt.md
-bun claude-workflow/scripts/workflow.ts start --mode explore --prompt /tmp/cw-test-prompt.md --dry-run
+bun skills/claude-workflow/scripts/workflow.ts start --mode explore --prompt /tmp/cw-test-prompt.md --dry-run
 ```
 Expected: a single shell command line containing `cd`, `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, `claude '-p' '--verbose' '--output-format' 'stream-json' '--allowedTools' 'Read' … '--disallowedTools' 'Edit' 'Write' 'NotebookEdit'`, stream redirections, and the exit-code capture. A run dir with `prompt.md`/`meta.json` is created under `~/.agents/claude-workflow/runs/` — delete it after checking.
 
@@ -1094,7 +1095,7 @@ Expected: a single shell command line containing `cd`, `CLAUDE_CODE_PRINT_BG_WAI
 
 ```bash
 bun run typecheck && bun run lint
-git add claude-workflow/scripts/workflow.ts tests/claude-workflow/cli.test.ts claude-workflow/scripts/lib/runs.ts tests/claude-workflow/runs.test.ts
+git add skills/claude-workflow/scripts/workflow.ts tests/claude-workflow/cli.test.ts skills/claude-workflow/scripts/lib/runs.ts tests/claude-workflow/runs.test.ts
 git commit -m "feat(claude-workflow): ✨ add workflow launcher CLI"
 ```
 
@@ -1103,14 +1104,14 @@ git commit -m "feat(claude-workflow): ✨ add workflow launcher CLI"
 ### Task 7: SKILL.md and smoke doc
 
 **Files:**
-- Create: `claude-workflow/SKILL.md`
+- Create: `skills/claude-workflow/SKILL.md`
 - Create: `docs/claude-workflow-smoke.md`
 
 **Interfaces:**
 - Consumes: the CLI contract from Task 6 and allowlist constants from Task 3 (copied verbatim into prose).
 - Produces: the user-facing skill document other harnesses read.
 
-- [ ] **Step 1: Write `claude-workflow/SKILL.md`**
+- [ ] **Step 1: Write `skills/claude-workflow/SKILL.md`**
 
 ```markdown
 ---
@@ -1234,15 +1235,15 @@ Give a one-paragraph overview of this repository's structure and list its
 skills. Use a small workflow (2-3 agents max).
 EOF
 
-RUN=$(bun claude-workflow/scripts/workflow.ts start --mode explore \
+RUN=$(bun skills/claude-workflow/scripts/workflow.ts start --mode explore \
   --prompt /tmp/cw-smoke.md --cwd . --name smoke | head -1)
 echo "$RUN"
 
 # watch progress (optional)
 tail -f "$RUN/log.jsonl" &
 
-while [ "$(bun claude-workflow/scripts/workflow.ts status "$RUN")" = "running" ]; do sleep 15; done
-bun claude-workflow/scripts/workflow.ts result "$RUN"
+while [ "$(bun skills/claude-workflow/scripts/workflow.ts status "$RUN")" = "running" ]; do sleep 15; done
+bun skills/claude-workflow/scripts/workflow.ts result "$RUN"
 ```
 
 Checks:
@@ -1256,7 +1257,7 @@ Checks:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add claude-workflow/SKILL.md docs/claude-workflow-smoke.md
+git add skills/claude-workflow/SKILL.md docs/claude-workflow-smoke.md
 git commit -m "docs(claude-workflow): 📝 add skill doc and smoke test guide"
 ```
 
@@ -1275,8 +1276,8 @@ Expected: all pass.
 
 ```bash
 echo "# t" > /tmp/cw-t.md
-bun claude-workflow/scripts/workflow.ts start --mode explore --prompt /tmp/cw-t.md --dry-run
-bun claude-workflow/scripts/workflow.ts start --mode build --prompt /tmp/cw-t.md --dry-run
+bun skills/claude-workflow/scripts/workflow.ts start --mode explore --prompt /tmp/cw-t.md --dry-run
+bun skills/claude-workflow/scripts/workflow.ts start --mode build --prompt /tmp/cw-t.md --dry-run
 ```
 Expected: explore command contains the full allowlist + disallow list; build command contains `--dangerously-skip-permissions` and no tool lists. Clean up the two created run dirs.
 

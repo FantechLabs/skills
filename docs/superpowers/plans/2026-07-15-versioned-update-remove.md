@@ -30,14 +30,14 @@
 **Files:**
 - Modify: `src/lib/skills.ts`
 - Modify: `.ruler/AGENTS.md`
-- Modify: `changeset/SKILL.md`
-- Modify: `claude-workflow/SKILL.md`
-- Modify: `commit/SKILL.md`
-- Modify: `handoff/SKILL.md`
-- Modify: `pick-up/SKILL.md`
-- Modify: `pr/SKILL.md`
-- Modify: `release/SKILL.md`
-- Modify: `review/SKILL.md`
+- Modify: `skills/changeset/SKILL.md`
+- Modify: `skills/claude-workflow/SKILL.md`
+- Modify: `skills/commit/SKILL.md`
+- Modify: `skills/handoff/SKILL.md`
+- Modify: `skills/pick-up/SKILL.md`
+- Modify: `skills/pr/SKILL.md`
+- Modify: `skills/release/SKILL.md`
+- Modify: `skills/review/SKILL.md`
 - Create: `tests/cli/skill-versions.test.ts`
 
 **Interfaces:**
@@ -49,7 +49,7 @@
 
 - [ ] **Step 1: Run the documentation RED scenario before changing `.ruler/AGENTS.md`**
 
-Ask a fresh-context subagent to inspect the repository rules and describe every required file change for a small wording edit to `commit/SKILL.md`. Record that the current rules do not require a version bump. This is the writing-skills baseline failure; do not edit files in this step.
+Ask a fresh-context subagent to inspect the repository rules and describe every required file change for a small wording edit to `skills/commit/SKILL.md`. Record that the current rules do not require a version bump. This is the writing-skills baseline failure; do not edit files in this step.
 
 - [ ] **Step 2: Write failing version tests**
 
@@ -170,7 +170,7 @@ Then ask a new fresh-context subagent the same repository-rule scenario from Ste
 - [ ] **Step 7: Commit**
 
 ```bash
-git add .ruler/AGENTS.md src/lib/skills.ts tests/cli/skill-versions.test.ts */SKILL.md
+git add .ruler/AGENTS.md src/lib/skills.ts tests/cli/skill-versions.test.ts skills/*/SKILL.md
 git commit -m "feat(skills): ✨ add independent skill versions"
 ```
 
@@ -686,9 +686,9 @@ Expected: complete suite passes after all review-driven changes.
 Follow the repository PR skill exactly:
 
 ```bash
-bun pr/scripts/create.ts --dry-run
+bun skills/pr/scripts/create.ts --dry-run
 git push -u origin uzee/versioned-update-remove
-bun pr/scripts/create.ts --ci --target main --title "Add versioned skill update and remove commands"
+bun skills/pr/scripts/create.ts --ci --target main --title "Add versioned skill update and remove commands"
 ```
 
 Use a concise body summarizing npm-backed independent versions, confirmed update/remove behavior, safety guarantees, and `bun run ci:test` evidence. Create the PR ready for review, not draft.

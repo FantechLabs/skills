@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 
 import { getCurrentBranch, getDefaultTarget, detectPRType, extractIssueKey, extractVersion, branchToTitle } from "./lib/branch";
@@ -12,7 +12,7 @@ import { createGitHubPR } from "./lib/github";
 import { createGitLabMR } from "./lib/gitlab";
 import { detectPlatform, getPlatformReadinessError } from "./lib/platform";
 import * as prompts from "./lib/prompts";
-import { findMonorepoRoot, isInteractive } from "./lib/runtime";
+import { findMonorepoRoot, isInteractive, resolveSiblingSkillScript } from "./lib/runtime";
 import { suggestReviewers } from "./lib/reviewers";
 import type { PRAnalysis, PRCreateParams, PRType } from "./lib/types";
 
@@ -205,7 +205,11 @@ async function runInteractive(cwd: string): Promise<void> {
     if (action === "run-changeset") {
       prompts.log("Running changeset skill...");
       try {
-        execSync("bun changeset/scripts/create.ts", { cwd, stdio: "inherit" });
+        execFileSync(
+          "bun",
+          [resolveSiblingSkillScript(import.meta.url, "changeset", "create.ts")],
+          { cwd, stdio: "inherit" },
+        );
       } catch {
         prompts.warn("Changeset creation failed or was cancelled");
       }

@@ -1,8 +1,18 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type PackageManager = "bun" | "pnpm" | "npm";
 export type ScriptRunner = "bun" | "tsx";
+
+export function resolveSiblingSkillScript(
+  scriptUrl: string,
+  skillName: string,
+  scriptFile: string,
+): string {
+  const scriptDir = dirname(fileURLToPath(scriptUrl));
+  return resolve(scriptDir, "..", "..", skillName, "scripts", scriptFile);
+}
 
 /**
  * Detect package manager from lockfile

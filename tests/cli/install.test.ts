@@ -464,13 +464,15 @@ describe("install command", () => {
 
     mkdirSync(packageRoot, { recursive: true });
     mkdirSync(cwd, { recursive: true });
-    for (const entry of ["bin", "src", "package.json", ...expectedSkills]) {
+    for (const entry of ["bin", "src", "package.json", "skills"]) {
       cpSync(join(REPO_ROOT, entry), join(packageRoot, entry), { recursive: true });
     }
     symlinkSync(join(REPO_ROOT, "node_modules"), join(packageRoot, "node_modules"), "dir");
-    mkdirSync(join(packageRoot, "handoff", "node_modules", "fixture-only"), { recursive: true });
+    mkdirSync(join(packageRoot, "skills", "handoff", "node_modules", "fixture-only"), {
+      recursive: true,
+    });
     writeFileSync(
-      join(packageRoot, "handoff", "node_modules", "fixture-only", "excluded.txt"),
+      join(packageRoot, "skills", "handoff", "node_modules", "fixture-only", "excluded.txt"),
       "must not be copied\n",
       "utf-8",
     );

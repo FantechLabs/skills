@@ -10,15 +10,15 @@ Give a one-paragraph overview of this repository's structure and list its
 skills. Use a small workflow (2-3 agents max).
 EOF
 
-RUN=$(bun claude-workflow/scripts/workflow.ts start --mode explore \
+RUN=$(bun skills/claude-workflow/scripts/workflow.ts start --mode explore \
   --prompt /tmp/cw-smoke.md --cwd . --name smoke | head -1)
 echo "$RUN"
 
 # watch progress (optional)
 tail -f "$RUN/log.jsonl" &
 
-while [ "$(bun claude-workflow/scripts/workflow.ts status "$RUN")" = "running" ]; do sleep 15; done
-bun claude-workflow/scripts/workflow.ts result "$RUN"
+while [ "$(bun skills/claude-workflow/scripts/workflow.ts status "$RUN")" = "running" ]; do sleep 15; done
+bun skills/claude-workflow/scripts/workflow.ts result "$RUN"
 ```
 
 Checks:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractResult } from "../../claude-workflow/scripts/lib/result";
+import { extractResult } from "../../skills/claude-workflow/scripts/lib/result";
 
 const initEvent = JSON.stringify({
   type: "system",

@@ -4,7 +4,7 @@ import {
   buildClaudeArgs,
   EXPLORE_ALLOWED_TOOLS,
   EXPLORE_DISALLOWED_TOOLS,
-} from "../../claude-workflow/scripts/lib/modes";
+} from "../../skills/claude-workflow/scripts/lib/modes";
 
 describe("explore allowlist", () => {
   it("matches the spec verbatim", () => {

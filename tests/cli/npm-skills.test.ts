@@ -40,7 +40,7 @@ async function makeTarballFixture(
   const fixtureRoot = createTempProject("npm-skills-fixture-");
   fixtureDirectories.push(fixtureRoot);
   const packageRoot = join(fixtureRoot, "package");
-  const skillRoot = join(packageRoot, "commit");
+  const skillRoot = join(packageRoot, "skills", "commit");
   const tarballPath = join(fixtureRoot, "skills.tgz");
 
   mkdirSync(skillRoot, { recursive: true });
@@ -71,15 +71,25 @@ async function makeTarballFixture(
 
 async function makeTarballWithLinks(): Promise<TarballFixture> {
   const bytes = Buffer.concat([
-    tarEntry("package/commit/", "Directory"),
+    tarEntry("package/skills/commit/", "Directory"),
     tarEntry(
-      "package/commit/SKILL.md",
+      "package/skills/commit/SKILL.md",
       "File",
       "---\nname: commit\nversion: 2.0.0\ndescription: Commit\n---\n",
     ),
-    tarEntry("package/commit/regular.txt", "File", "safe regular file\n"),
-    tarEntry("package/commit/symbolic-link.txt", "SymbolicLink", "", "../../../outside-secret.txt"),
-    tarEntry("package/commit/hard-link.txt", "Link", "", "package/commit/regular.txt"),
+    tarEntry("package/skills/commit/regular.txt", "File", "safe regular file\n"),
+    tarEntry(
+      "package/skills/commit/symbolic-link.txt",
+      "SymbolicLink",
+      "",
+      "../../../../outside-secret.txt",
+    ),
+    tarEntry(
+      "package/skills/commit/hard-link.txt",
+      "Link",
+      "",
+      "package/skills/commit/regular.txt",
+    ),
     Buffer.alloc(1024),
   ]);
   return {
@@ -233,7 +243,7 @@ describe("loadLatestSkillPackage", () => {
     });
 
     try {
-      const skillRoot = join(loaded.packageRoot, "commit");
+      const skillRoot = join(loaded.packageRoot, "skills", "commit");
       expect(loaded.skills.map((skill) => skill.name)).toEqual(["commit"]);
       expect(readFileSync(join(skillRoot, "regular.txt"), "utf-8")).toBe("safe regular file\n");
       expect(readdirSync(skillRoot).sort()).toEqual(["SKILL.md", "regular.txt"]);

@@ -6,7 +6,7 @@ import {
   fileToPackage,
   getAllPackages,
   getPackageScopes,
-} from "../../changeset/scripts/lib/packages";
+} from "../../skills/changeset/scripts/lib/packages";
 import { cleanupTempProject, createTempProject } from "../utils/fs";
 
 const tempProjects: string[] = [];

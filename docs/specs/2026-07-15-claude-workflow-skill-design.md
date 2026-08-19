@@ -17,18 +17,19 @@ A skill any agent harness (Codex, Pi, etc. — not Claude Code itself) can invok
 
 ## Layout
 
-New top-level skill directory in this repo, matching existing conventions (`commit/`, `pr/`):
+New skill directory beneath the repository's top-level `skills/` directory, matching existing conventions (`skills/commit/`, `skills/pr/`):
 
 ```text
-claude-workflow/
-  SKILL.md
-  scripts/
-    workflow.ts        # entrypoint: start | status | result | stop | resume | list
-    lib/               # prompt composition, run-dir management, claude process spawn
-    package.json
+skills/
+  claude-workflow/
+    SKILL.md
+    scripts/
+      workflow.ts        # entrypoint: start | status | result | stop | resume | list
+      lib/               # prompt composition, run-dir management, claude process spawn
+      package.json
 ```
 
-Repo integration: add `claude-workflow/` to the root `package.json` `files` array and to the `lint`/`format` script globs.
+Repo integration: package the root `skills/` directory and update the `lint`/`format` script paths to the relocated skill script directories.
 
 ## CLI interface (`scripts/workflow.ts`)
 

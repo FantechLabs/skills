@@ -110,20 +110,20 @@ describe("list command", () => {
   });
 
   it("requires pickup confirmation before reading handoff contents", () => {
-    const content = readFileSync(join(process.cwd(), "pick-up", "SKILL.md"), "utf-8");
+    const content = readFileSync(join(process.cwd(), "skills", "pick-up", "SKILL.md"), "utf-8");
 
     expect(content).toContain("Do not read or load the file before confirmation.");
   });
 
   it("requires descriptive handoff filenames for pickup selection", () => {
-    const content = readFileSync(join(process.cwd(), "handoff", "SKILL.md"), "utf-8");
+    const content = readFileSync(join(process.cwd(), "skills", "handoff", "SKILL.md"), "utf-8");
 
     expect(content).toContain("YYYY-MM-DD-HHMM-<project>-<focus-slug>.md");
     expect(content).toContain("Do not use timestamp-only or generic names.");
   });
 
   it("matches pickup candidates by filename before recency fallback", () => {
-    const content = readFileSync(join(process.cwd(), "pick-up", "SKILL.md"), "utf-8");
+    const content = readFileSync(join(process.cwd(), "skills", "pick-up", "SKILL.md"), "utf-8");
 
     expect(content).toContain(
       "Match filename words against the user's request/context before using recency.",

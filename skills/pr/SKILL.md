@@ -1,6 +1,6 @@
 ---
 name: pr
-version: 1.0.0
+version: 1.0.1
 description: Create pull requests with practical preflight checks, branch-scoped changeset validation, issue linking, and reviewer suggestions for GitHub/GitLab.
 ---
 
@@ -11,14 +11,17 @@ Create pull requests or merge requests using deterministic analysis and platform
 ## Quick Start
 
 ```bash
+# Set this to the scripts/ directory next to this SKILL.md file.
+SCRIPTS=/path/to/pr/scripts
+
 # Interactive
-bun pr/scripts/create.ts
+bun "$SCRIPTS/create.ts"
 
 # CI or agent mode
-bun pr/scripts/create.ts --ci --title "PROD-123 | Add feature" --target main
+bun "$SCRIPTS/create.ts" --ci --title "PROD-123 | Add feature" --target main
 
 # Analyze only
-bun pr/scripts/create.ts --dry-run
+bun "$SCRIPTS/create.ts" --dry-run
 ```
 
 ## Title Format
@@ -56,7 +59,7 @@ Before creation, the script validates:
 
 ## Agent Process
 
-1. Run `bun pr/scripts/create.ts --dry-run`
+1. Run `bun "$SCRIPTS/create.ts" --dry-run`, with `SCRIPTS` set to the `scripts/` directory next to this file
 2. Review analysis and warnings
 3. Resolve missing changeset if required
 4. Craft final title and body with project context

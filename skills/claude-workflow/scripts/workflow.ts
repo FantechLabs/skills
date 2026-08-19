@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// claude-workflow/scripts/workflow.ts
+// skills/claude-workflow/scripts/workflow.ts
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
