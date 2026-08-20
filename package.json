@@ -51,6 +51,7 @@
     "vite-plus": "0.2.9"
   },
   "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.9",
     "vitest": "4.1.10"
   },
   "devEngines": {
