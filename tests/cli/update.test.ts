@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { runUpdateCommand, type UpdateCommandDependencies } from "../../src/commands/update.js";
 import type { InstalledSkill } from "../../src/lib/installed-skills.js";

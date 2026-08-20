@@ -219,31 +219,36 @@ default_script: create
 
 ## Development
 
+Install the pinned Vite+ CLI once, then let it provision the project Node and Bun versions:
+
 ```bash
-bun install
-bun run lint
-bun run format:check
-bun run typecheck
+curl -fsSL https://vite.plus | VP_VERSION=0.2.9 bash
+vp install
+vp run check
 ```
+
+The project pins Node `24.19.0` for development and Bun `1.3.9` for package management while the
+published CLI continues to support Node `>=20.10.0`.
 
 ## Testing
 
 ```bash
-bun run test
-bun run test:watch
-bun run test:coverage
-bun run test:bun-smoke
-bun run ci:test
+vp test
+vp test watch
+vp test --coverage
+vp run test:bun-smoke
+vp run ci:test
 ```
 
-- `bun run test`: full Vitest suite.
-- `bun run test:watch`: watch mode during development.
-- `bun run test:coverage`: generate coverage report.
-- `bun run test:bun-smoke`: verify Bun can execute core CLI entrypoints.
-- `bun run ci:test`: lint + typecheck + tests + Bun smoke checks.
+- `vp test`: full Vitest suite.
+- `vp test watch`: watch mode during development.
+- `vp test --coverage`: generate a coverage report.
+- `vp run test:bun-smoke`: verify Bun can execute core CLI entrypoints.
+- `vp run ci:test`: formatting + lint + typecheck + tests + Bun smoke checks.
 - CI runs this suite on Node `20`, `22`, and `24`, plus a dedicated Bun job.
 
 ## Hooks
 
-- `pre-commit`: `oxlint` + `oxfmt --check` on staged snapshot
-- `commit-msg`: `commitlint` + `tsc --noEmit` (skipped when commit message is explicitly marked as WIP)
+- Vite+ installs the project-owned hooks from `.vite-hooks` during `vp install`.
+- `pre-commit`: type-aware Oxlint + Oxfmt check on the staged snapshot.
+- `commit-msg`: Commitlint + Vite+ typecheck (skipped when the message is explicitly marked as WIP).

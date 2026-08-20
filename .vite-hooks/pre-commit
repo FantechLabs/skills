@@ -30,4 +30,4 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-npm run -s precommit
+vp run precommit

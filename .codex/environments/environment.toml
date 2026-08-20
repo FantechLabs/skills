@@ -5,4 +5,4 @@ name = "skills"
 [setup]
 script = '''
 cd "$CODEX_WORKTREE_PATH"
-bun install'''
+vp install'''

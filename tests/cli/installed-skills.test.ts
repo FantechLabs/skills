@@ -1,7 +1,7 @@
 import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { findInstalledSkills } from "../../src/lib/installed-skills.js";
 import { cleanupTempProject, createTempProject } from "../utils/fs";

@@ -1,5 +1,5 @@
 // tests/claude-workflow/prompt.test.ts
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composePrompt, PROMPT_SEPARATOR } from "../../skills/claude-workflow/scripts/lib/prompt";
 

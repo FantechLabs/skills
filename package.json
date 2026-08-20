@@ -23,18 +23,20 @@
   },
   "scripts": {
     "skills": "node ./bin/skills.mjs",
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts vitest.config.ts",
-    "format": "oxfmt src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vitest.config.ts",
-    "format:check": "oxfmt --check src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vitest.config.ts",
-    "precommit": "bun run lint && bun run format:check",
+    "check": "vp check src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vite.config.ts && vp run typecheck",
+    "typecheck": "vp lint --type-check src skills/commit/scripts skills/claude-workflow/scripts",
+    "lint": "vp lint src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts vite.config.ts",
+    "format": "vp fmt src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vite.config.ts",
+    "format:check": "vp fmt src tests skills/commit/scripts skills/claude-workflow/scripts skills/release/scripts skills/changeset/scripts bin package.json tsconfig.json vite.config.ts --check",
+    "precommit": "vp run lint && vp run format:check",
     "commitlint": "commitlint",
-    "prepare": "husky",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "prepare": "vp config --no-agent",
+    "test": "vp test",
+    "test:watch": "vp test watch",
+    "test:coverage": "vp test --coverage",
+    "test:bun": "bun node_modules/vite-plus/bin/vp test",
     "test:bun-smoke": "bash ./scripts/test-bun-smoke.sh",
-    "ci:test": "bun run lint && bun run typecheck && bun run test && bun run test:bun-smoke"
+    "ci:test": "vp run check && vp test && vp run test:bun-smoke"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
@@ -45,14 +47,21 @@
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.0.0",
     "@types/node": "^22.10.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "husky": "^9.1.7",
-    "oxfmt": "^0.28.0",
-    "oxlint": "^1.43.0",
-    "typescript": "^5.8.2",
-    "vitest": "^4.0.18"
+    "@vitest/coverage-v8": "4.1.10",
+    "vite-plus": "0.2.9"
+  },
+  "overrides": {
+    "vitest": "4.1.10"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.19.0",
+      "onFail": "download"
+    }
   },
   "engines": {
     "node": ">=20.10.0"
-  }
+  },
+  "packageManager": "bun@1.3.9"
 }

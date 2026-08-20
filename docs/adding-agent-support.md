@@ -75,7 +75,7 @@ Keep entries concise and consistent with code behavior.
 Run:
 
 ```bash
-bun run ci:test
+vp run ci:test
 ```
 
 ## 8. Report With Evidence
