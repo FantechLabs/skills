@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   resolveInstallTargets,
@@ -500,7 +500,9 @@ describe("install command", () => {
     const installs = readFileSync(logFile, "utf-8").trim().split("\n").map(JSON.parse);
     expect(installs).toHaveLength(5);
     expect(
-      installs.map(({ cwd: installCwd }) => installCwd.replace(/^\/private/, "")).sort(),
+      installs
+        .map(({ cwd: installCwd }) => installCwd.replace(/^\/private/, ""))
+        .sort((left, right) => left.localeCompare(right)),
     ).toEqual(
       runnableSkills
         .map((skill) => join(cwd, ".agents", "skills", skill, "scripts").replace(/^\/private/, ""))

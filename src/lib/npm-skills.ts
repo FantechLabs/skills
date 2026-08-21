@@ -45,7 +45,7 @@ export async function loadLatestSkillPackage(
       process.env.npm_config_registry ??
       DEFAULT_REGISTRY_URL
     ).replace(/\/+$/, "");
-    const timeoutSignal = options.timeoutSignal ?? AbortSignal.timeout;
+    const timeoutSignal = options.timeoutSignal ?? ((timeout) => AbortSignal.timeout(timeout));
     const metadataUrl = `${registryUrl}/${encodeURIComponent(PACKAGE_NAME)}/latest`;
     const metadataResponse = await fetchImpl(metadataUrl, { signal: timeoutSignal(15_000) });
 

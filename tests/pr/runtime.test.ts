@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import * as runtime from "../../skills/pr/scripts/lib/runtime";
 

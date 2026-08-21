@@ -3,7 +3,7 @@ set -eu
 
 msg_file="$1"
 
-npm run -s commitlint -- --edit "$msg_file"
+vp run commitlint --edit "$msg_file"
 
 # Allow explicit WIP commits without blocking on full typecheck.
 if grep -Eiq '\[WIP\]|(^|[[:space:]])WIP([[:space:]:]|$)' "$msg_file"; then
@@ -11,4 +11,4 @@ if grep -Eiq '\[WIP\]|(^|[[:space:]])WIP([[:space:]:]|$)' "$msg_file"; then
   exit 0
 fi
 
-npm run -s typecheck
+vp run typecheck

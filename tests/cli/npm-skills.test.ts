@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { create as createTar, Header } from "tar";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { loadLatestSkillPackage } from "../../src/lib/npm-skills";
 import { createTempProject } from "../utils/fs";

@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { runRemoveCommand, type RemoveCommandDependencies } from "../../src/commands/remove.js";
 import type { ManagementTargetResolution, TargetFlags } from "../../src/lib/install-targets.js";

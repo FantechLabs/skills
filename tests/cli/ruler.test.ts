@@ -1,7 +1,7 @@
 import type { spawnSync } from "node:child_process";
 
 import * as p from "@clack/prompts";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { applyRulerAfterChanges } from "../../src/lib/ruler";
 
