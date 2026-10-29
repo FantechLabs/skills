@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Skill gem, lit from within">
+  <style>
+    .tile-a { stop-color: #082F49 } .tile-b { stop-color: #020617 }
+    .tile-edge { stroke: #0E7490; stroke-opacity: 0 }
+    .f1 { fill: #67E8F9 } .f2 { fill: #06B6D4 } .f3 { fill: #0E7490 }
+    .f4 { fill: #155E75 } .f5 { fill: #0891B2 } .f6 { fill: #22D3EE }
+    .crease { stroke: #042F2E; stroke-opacity: 0.45 }
+    .rim { stroke: #A5F3FC; stroke-opacity: 0.75 }
+    @media (prefers-color-scheme: light) {
+      .tile-a { stop-color: #FAFEFF } .tile-b { stop-color: #D3F0F8 }
+      .tile-edge { stroke-opacity: 0.22 }
+      .f1 { fill: #22D3EE } .f2 { fill: #0891B2 } .f3 { fill: #155E75 }
+      .f4 { fill: #164E63 } .f5 { fill: #0E7490 } .f6 { fill: #06B6D4 }
+      .crease { stroke: #082F49; stroke-opacity: 0.45 }
+      .rim { stroke: #0E7490; stroke-opacity: 0.8 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="eh-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop class="tile-a" offset="0%"/>
+      <stop class="tile-b" offset="100%"/>
+    </linearGradient>
+    <radialGradient id="eh-ember" cx="32" cy="32" r="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FEF3C7" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#FBBF24" stop-opacity="0.85"/>
+      <stop offset="65%" stop-color="#F97316" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#eh-bg)"/>
+  <rect class="tile-edge" x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke-width="1"/>
+
+  <!-- Six facets meeting at the core -->
+  <polygon class="f1" points="32,32 32,8 53,20"/>
+  <polygon class="f2" points="32,32 53,20 53,44"/>
+  <polygon class="f3" points="32,32 53,44 32,56"/>
+  <polygon class="f4" points="32,32 32,56 11,44"/>
+  <polygon class="f5" points="32,32 11,44 11,20"/>
+  <polygon class="f6" points="32,32 11,20 32,8"/>
+
+  <!-- Ember light bleeding through the facets -->
+  <circle cx="32" cy="32" r="24" fill="url(#eh-ember)"/>
+
+  <!-- Facet creases and rim -->
+  <path class="crease" d="M32 32 L32 8 M32 32 L53 20 M32 32 L53 44 M32 32 L32 56 M32 32 L11 44 M32 32 L11 20" fill="none" stroke-width="1.1"/>
+  <polygon class="rim" points="32,8 53,20 53,44 32,56 11,44 11,20" fill="none" stroke-width="1.6" stroke-linejoin="round"/>
+
+  <!-- Spark -->
+  <path d="M32 21 Q32 32 43 32 Q32 32 32 43 Q32 32 21 32 Q32 32 32 21 Z" fill="#FFFBEB"/>
+  <circle cx="32" cy="32" r="2.6" fill="#FFFFFF"/>
+</svg>
